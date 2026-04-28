@@ -1,0 +1,6 @@
+R_DEF: Internal format may change without notice
+local
+string app_name
+string set_duration
+string start_sleep
+string stop_sleep

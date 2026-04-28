@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.smartsleep.alarm.app-mergeDebugResources-68:/values-v16/values-v16.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\saadh\\.gradle\\caches\\9.3.1\\transforms\\c733b494cb100b60f0c85c23db007320\\workspace\\transformed\\core-1.12.0\\res\\values-v16\\values-v16.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "65",
+                        "endOffsets": "116"
+                    }
+                }
+            ]
+        }
+    ]
+}

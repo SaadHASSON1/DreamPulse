@@ -1,0 +1,1 @@
+-keep,allowobfuscation,allowshrinking class com.smartsleep.alarm.ui.viewmodel.MainViewModel

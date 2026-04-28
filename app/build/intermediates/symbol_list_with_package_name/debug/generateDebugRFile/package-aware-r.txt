@@ -1,0 +1,10 @@
+com.smartsleep.alarm
+drawable ic_launcher_background
+mipmap ic_launcher
+mipmap ic_launcher_foreground
+mipmap ic_launcher_round
+string app_name
+string set_duration
+string start_sleep
+string stop_sleep
+string tile_description

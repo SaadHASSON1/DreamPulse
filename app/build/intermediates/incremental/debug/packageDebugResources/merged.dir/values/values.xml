@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DreamPulse</string>
+    <string name="set_duration">Set Duration (Hours)</string>
+    <string name="start_sleep">Start Tracking</string>
+    <string name="stop_sleep">Cancel Alarm</string>
+    <string name="tile_description">Quick access to DreamPulse sleep tracking.</string>
+</resources>
