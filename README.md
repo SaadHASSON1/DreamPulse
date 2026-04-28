@@ -42,6 +42,9 @@
 *   **الطلاب**: لتجديد النشاط الذهني بقيلولة محسوبة بالدقيقة بعد جلسات المذاكرة المكثفة.
 *   **المهنيون في بيئات العمل**: لأخذ "قيلولة القوة" (Power Nap) وضمان استغلال كل دقيقة راحة في نوم حقيقي.
 
+### 🧪 الأساس العلمي (Scientific Foundation):
+يعتمد DreamPulse على حقيقة علمية مفادها أن دورة النوم البشرية الواحدة تستغرق **90 دقيقة** تقريباً. هدفنا هو مساعدتك على إكمال دورات نوم كاملة (مثلاً 1.5، 3، 4.5، أو 7.5 ساعة) دون انقطاع. من خلال بدء العد التنازلي عند النوم الفعلي فقط، نضمن لك ألا يستيقظ جسدك في منتصف الدورة، مما يجنبك الشعور بالدوار ويزيد من كفاءة راحتك.
+
 </div>
 
 ---
@@ -73,6 +76,9 @@ DreamPulse is the ultimate tool for high-pressure professionals and students:
 *   **Medical Professionals**: Get precise, actual rest between long on-call shifts.
 *   **Students**: Optimize brain recovery with perfectly timed study naps.
 *   **Corporate Workers**: Master the "Power Nap" by ensuring every minute of your break is spent in real physiological sleep.
+
+### 🧪 Scientific Foundation:
+DreamPulse is built on the scientific fact that a single human sleep cycle lasts approximately **90 minutes**. Our goal is to help you complete full sleep cycles (e.g., 1.5, 3, 4.5, or 7.5 hours) without interruption. By starting the countdown only upon actual sleep onset, we ensure your body doesn't wake up mid-cycle, preventing sleep inertia and maximizing recovery efficiency.
 
 ---
 
