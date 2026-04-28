@@ -1,7 +1,7 @@
 # 🌕 DreamPulse - The Cosmic Sleep Experience for Wear OS
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/SaadHASSON1/DreamPulse/main/app/src/main/res/drawable/ic_cosmic_sunrise.png" width="120" alt="DreamPulse Sun Logo">
+  <img src="app/src/main/res/drawable/ic_cosmic_sunrise.png" width="120" alt="DreamPulse Sun Logo">
 </p>
 
 <p align="center">
