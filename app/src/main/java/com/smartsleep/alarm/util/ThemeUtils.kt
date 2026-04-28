@@ -31,13 +31,13 @@ object ThemeUtils {
             in 17..20 -> ThemeColors( // Evening
                 primary = Color(0xFFFF8A65),
                 secondary = Color(0xFFD84315),
-                backgroundGradient = listOf(Color(0xFFFFCCBC), Color(0xFFFF8A65)),
+                backgroundGradient = listOf(Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)),
                 name = "Evening"
             )
             else -> ThemeColors( // Night
                 primary = Color(0xFF7986CB),
                 secondary = Color(0xFF283593),
-                backgroundGradient = listOf(Color(0xFF1A237E), Color(0xFF000000)),
+                backgroundGradient = listOf(Color(0xFF0D1B2A), Color(0xFF000000)),
                 name = "Night"
             )
         }

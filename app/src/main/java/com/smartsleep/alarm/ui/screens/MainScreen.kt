@@ -4,17 +4,25 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -23,16 +31,31 @@ import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import com.smartsleep.alarm.domain.model.SleepState
 import com.smartsleep.alarm.ui.viewmodel.MainViewModel
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.ui.graphics.graphicsLayer
 
+@Composable
+fun StarryBackground() {
+    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+        val random = java.util.Random(42) // Stable seed
+        repeat(100) {
+            val x = random.nextFloat() * size.width
+            val y = random.nextFloat() * size.height
+            val alpha = random.nextFloat() * 0.4f + 0.1f
+            val radius = random.nextFloat() * 1.2f
+            drawCircle(
+                color = Color.White.copy(alpha = alpha),
+                radius = radius,
+                center = androidx.compose.ui.geometry.Offset(x, y)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
     val isTracking by viewModel.isTracking.collectAsState()
     val durationMin by viewModel.sleepDurationMinutes.collectAsState()
     val sleepState by viewModel.currentSleepState.collectAsState()
-    val currentMotion by viewModel.currentMotion.collectAsState()
     val currentHeartRate by viewModel.currentHeartRate.collectAsState()
     val isOnBody by viewModel.isOnBody.collectAsState()
     
@@ -46,133 +69,113 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
         mutableStateOf(if (level != -1 && scale != -1) (level * 100 / scale.toFloat()).toInt() else 0)
     }
 
-    val transitionSpec = remember {
-        val duration = 400
-        val easing = FastOutSlowInEasing
-        ContentTransform(
-            targetContentEnter = slideInHorizontally(animationSpec = tween(duration, easing = easing)) { it } + fadeIn(animationSpec = tween(duration)),
-            initialContentExit = slideOutHorizontally(animationSpec = tween(duration, easing = easing)) { -it } + fadeOut(animationSpec = tween(duration))
-        )
-    }
-    
-    val transitionSpecBack = remember {
-        val duration = 400
-        val easing = FastOutSlowInEasing
-        ContentTransform(
-            targetContentEnter = slideInHorizontally(animationSpec = tween(duration, easing = easing)) { -it } + fadeIn(animationSpec = tween(duration)),
-            initialContentExit = slideOutHorizontally(animationSpec = tween(duration, easing = easing)) { it } + fadeOut(animationSpec = tween(duration))
-        )
-    }
+    val transitionSpec = fadeIn(animationSpec = tween(600)) with fadeOut(animationSpec = tween(600))
 
     Scaffold {
-        val theme = remember { com.smartsleep.alarm.util.ThemeUtils.getCurrentTheme() }
-        
-        AnimatedContent(
-            targetState = isTracking,
-            transitionSpec = {
-                if (targetState) transitionSpec else transitionSpecBack
-            },
-            label = "MainTransition"
-        ) { tracking ->
-            val scrollState = rememberScalingLazyListState()
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+            StarryBackground()
             
-            ScalingLazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = theme.backgroundGradient
-                        )
-                    ),
-                state = scrollState,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // 1. Branding (Always at top)
-                item {
-                    Text(
-                        text = "DREAMPULSE",
-                        style = MaterialTheme.typography.title3.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.SansSerif
-                        ),
-                        color = Color.White,
-                        letterSpacing = 0.sp,
-                        modifier = Modifier.padding(top = 20.dp, bottom = 4.dp)
-                    )
-                }
-
-                if (!tracking) {
-                    // --- SETUP STATE ---
+            AnimatedContent(
+                targetState = isTracking,
+                transitionSpec = { transitionSpec },
+                label = "MainTransition"
+            ) { tracking ->
+                val scrollState = rememberScalingLazyListState()
+                
+                ScalingLazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = scrollState,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 1. Branding (Always at top)
                     item {
                         Text(
-                            "Hello, Dreamer!",
-                            style = MaterialTheme.typography.caption1,
-                            color = Color(0xFF64B5F6),
-                            modifier = Modifier.padding(top = 4.dp)
+                            text = "DREAMPULSE",
+                            style = MaterialTheme.typography.title3.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.SansSerif
+                            ),
+                            color = Color.White,
+                            letterSpacing = 0.sp,
+                            modifier = Modifier.padding(top = 20.dp, bottom = 4.dp)
                         )
                     }
 
-                    item {
-                        var currentTime by remember { mutableStateOf("") }
-                        LaunchedEffect(Unit) {
-                            val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
-                            val pattern = if (is24Hour) "HH:mm" else "hh:mm a"
-                            val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
-                            while(true) {
-                                currentTime = sdf.format(java.util.Calendar.getInstance().time)
-                                kotlinx.coroutines.delay(10000)
+                    if (!tracking) {
+                        // --- SETUP STATE ---
+                        item {
+                            Text(
+                                "Hello, Dreamer!",
+                                style = MaterialTheme.typography.caption1.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = Color(0xFF90CAF9),
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+
+                        item {
+                            var currentTime by remember { mutableStateOf("") }
+                            LaunchedEffect(Unit) {
+                                val is24Hour = android.text.format.DateFormat.is24HourFormat(context)
+                                val pattern = if (is24Hour) "HH:mm" else "hh:mm a"
+                                val sdf = java.text.SimpleDateFormat(pattern, java.util.Locale.getDefault())
+                                while(true) {
+                                    currentTime = sdf.format(java.util.Calendar.getInstance().time)
+                                    kotlinx.coroutines.delay(10000)
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.padding(top = 10.dp, bottom = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                StatusChip(
+                                    icon = if (batteryLevel > 20) "🔋" else "⚠️",
+                                    label = "$batteryLevel%",
+                                    color = if (batteryLevel > 20) Color(0xFF81C784) else Color(0xFFFF7043)
+                                )
+                                StatusChip(icon = "🕒", label = currentTime, color = Color.White)
                             }
                         }
 
-                        Row(
-                            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            StatusChip(
-                                icon = if (batteryLevel > 20) "🔋" else "⚠️",
-                                label = "$batteryLevel%",
-                                color = if (batteryLevel > 20) Color(0xFF4CAF50) else Color(0xFFFF5252)
+                        item {
+                            Text(
+                                "WAKE UP IN",
+                                style = MaterialTheme.typography.caption2,
+                                color = Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(top = 8.dp)
                             )
-                            StatusChip(icon = "🕒", label = currentTime, color = Color.White)
-                            StatusChip(icon = "🛰️", label = "Active", color = Color(0xFF64B5F6))
                         }
-                    }
 
                     item {
-                        Text(
-                            "WAKE UP IN",
-                            style = MaterialTheme.typography.caption2,
-                            color = Color.LightGray,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
-
-                    item {
+                        // Main Time Adjustment Row (+/- 1m)
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Button(
                                 onClick = { if (durationMin > 1) viewModel.setDuration(durationMin - 1) },
-                                modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
-                                colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color(0xFF2C2C2C))
+                                modifier = Modifier.size(36.dp),
+                                colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color.White.copy(alpha = 0.1f))
                             ) {
                                 Text("-", fontSize = 20.sp, color = Color.White)
                             }
                             
                             Text(
                                 "${durationMin / 60}h ${durationMin % 60}m",
-                                style = MaterialTheme.typography.title1,
+                                style = MaterialTheme.typography.title2,
                                 color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 6.dp)
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(horizontal = 12.dp)
                             )
 
                             Button(
                                 onClick = { if (durationMin < 720) viewModel.setDuration(durationMin + 1) },
-                                modifier = Modifier.size(ButtonDefaults.SmallButtonSize),
-                                colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color(0xFF2C2C2C))
+                                modifier = Modifier.size(36.dp),
+                                colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color.White.copy(alpha = 0.1f))
                             ) {
                                 Text("+", fontSize = 20.sp, color = Color.White)
                             }
@@ -180,96 +183,154 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
                     }
 
                     item {
+                        // Quick Adjustment Row (+/- 30m)
                         Row(
-                            modifier = Modifier.padding(bottom = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            CompactButton(label = "-30m", onClick = { if (durationMin > 30) viewModel.setDuration(durationMin - 30) })
-                            CompactButton(label = "+30m", onClick = { if (durationMin < 690) viewModel.setDuration(durationMin + 30) })
-                        }
-                    }
-
-                    item {
-                        Button(
-                            onClick = { viewModel.startTracking() },
-                            modifier = Modifier
-                                .fillMaxWidth(0.95f)
-                                .height(52.dp)
-                                .padding(bottom = 20.dp),
-                            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF1976D2))
-                        ) {
-                            Text("START TRACKING", fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
-                        }
-                    }
-
-                    item {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(top = 20.dp, bottom = 40.dp)
-                        ) {
-                            Text(
-                                "X13LABS",
-                                style = MaterialTheme.typography.caption2,
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 2.sp
-                            )
-                        }
-                    }
-
-                } else {
-                    // --- TRACKING STATE ---
-                    item { PulseIcon() }
-                    
-                    item {
-                        Text(
-                            if (sleepState == SleepState.ASLEEP) "Sweet Dreams..." else "Monitoring Sleep...",
-                            style = MaterialTheme.typography.title2,
-                            color = Color(0xFF64B5F6),
-                            modifier = Modifier.padding(vertical = 12.dp)
-                        )
-                    }
-                    
-                    item {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        ) {
-                            Text(
-                                if (isOnBody) String.format("Motion: %.2f", currentMotion) else "OFF-BODY ⚠️",
-                                style = MaterialTheme.typography.caption2,
-                                color = if (!isOnBody) Color(0xFFFF5252) else if (currentMotion > 0.1f) Color(0xFF64B5F6) else Color.DarkGray
-                            )
+                            Button(
+                                onClick = { if (durationMin > 30) viewModel.setDuration(durationMin - 30) },
+                                modifier = Modifier.height(28.dp).width(44.dp),
+                                colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color.White.copy(alpha = 0.05f)),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Text("-30m", fontSize = 9.sp, color = Color.White.copy(alpha = 0.6f))
+                            }
                             
-                            if (isOnBody && currentHeartRate > 0) {
-                                Text(
-                                    "💓 ${currentHeartRate.toInt()}",
-                                    style = MaterialTheme.typography.caption2,
-                                    color = Color(0xFFFF5252)
-                                )
+                            Button(
+                                onClick = { if (durationMin <= 690) viewModel.setDuration(durationMin + 30) },
+                                modifier = Modifier.height(28.dp).width(44.dp),
+                                colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color.White.copy(alpha = 0.05f)),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Text("+30m", fontSize = 9.sp, color = Color.White.copy(alpha = 0.6f))
                             }
                         }
                     }
-                    
-                    item {
-                        Button(
-                            onClick = { viewModel.stopTracking() },
-                            modifier = Modifier.fillMaxWidth(0.8f).height(40.dp),
-                            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFD32F2F))
-                        ) {
-                            Text("STOP", fontWeight = FontWeight.Bold)
-                        }
-                    }
 
-                    item {
-                        Button(
-                            onClick = { viewModel.simulateSleep() },
-                            modifier = Modifier.padding(top = 10.dp).height(28.dp),
-                            colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color(0xFF2C2C2C))
-                        ) {
-                            Text("Simulate", fontSize = 10.sp, color = Color.Gray)
+                        item {
+                            Button(
+                                onClick = { viewModel.startTracking() },
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .padding(top = 8.dp)
+                                    .height(44.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    backgroundColor = Color(0xFF64B5F6)
+                                ),
+                                shape = RoundedCornerShape(22.dp)
+                            ) {
+                                Text("START TRACKING", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                            }
                         }
+                        
+                        item {
+                            // --- FEATURE TIP (Smart Education) ---
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .padding(top = 16.dp)
+                                    .fillMaxWidth(0.85f)
+                                    .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Text(
+                                    "✨ PRO TIP ✨",
+                                    style = MaterialTheme.typography.caption2.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 8.sp,
+                                        letterSpacing = 1.sp
+                                    ),
+                                    color = Color(0xFFFFD54F)
+                                )
+                                Text(
+                                    "SHAKE WATCH TO STOP ALARM",
+                                    style = MaterialTheme.typography.caption2.copy(fontSize = 9.sp),
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                        
+                        item {
+                            Text(
+                                "by Saad HASSON (X13LABS)",
+                                style = MaterialTheme.typography.caption2.copy(
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(top = 16.dp, bottom = 28.dp)
+                            )
+                        }
+
+                    } else {
+                        // --- TRACKING STATE ---
+                        item { PulseIcon() }
+                        
+                        item {
+                            Text(
+                                if (sleepState == SleepState.ASLEEP) "Sweet Dreams..." else "Monitoring Sleep...",
+                                style = MaterialTheme.typography.title3.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = Color(0xFF90CAF9),
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        item {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            ) {
+                                StatusChip(
+                                    icon = "💓", 
+                                    label = if (isOnBody && currentHeartRate > 0) "${currentHeartRate.toInt()}" else "--",
+                                    color = Color(0xFFFF5252)
+                                )
+                                StatusChip(
+                                    icon = "🛰️", 
+                                    label = if (isOnBody) "Active" else "Off",
+                                    color = if (isOnBody) Color(0xFF64B5F6) else Color.Gray
+                                )
+                            }
+                        }
+                        
+                        item {
+                            Button(
+                                onClick = { viewModel.stopTracking() },
+                                modifier = Modifier.fillMaxWidth(0.7f).height(38.dp),
+                                colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFC62828)),
+                                shape = RoundedCornerShape(19.dp)
+                            ) {
+                                Text("STOP", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                            }
+                        }
+
+                        item {
+                            Button(
+                                onClick = { viewModel.simulateSleep() },
+                                modifier = Modifier
+                                    .padding(top = 16.dp)
+                                    .fillMaxWidth(0.8f)
+                                    .height(36.dp)
+                                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(18.dp)),
+                                colors = ButtonDefaults.secondaryButtonColors(
+                                    backgroundColor = Color.White.copy(alpha = 0.05f)
+                                ),
+                                shape = RoundedCornerShape(18.dp)
+                            ) {
+                                Text(
+                                    "Simulation Mode", 
+                                    fontSize = 11.sp, 
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+
+                        // Add extra space at the end for circular screens
+                        item { Spacer(modifier = Modifier.height(65.dp)) }
                     }
                 }
             }
@@ -278,39 +339,41 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
 }
 
 @Composable
+fun PulseIcon() {
+    Box(
+        modifier = Modifier
+            .padding(top = 16.dp)
+            .size(65.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Subtle Glow Behind the Moon
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .background(Color(0xFF64B5F6).copy(alpha = 0.05f), CircleShape)
+        )
+        
+        Image(
+            painter = painterResource(id = com.smartsleep.alarm.R.drawable.ic_realistic_moon),
+            contentDescription = "Realistic Moon",
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(CircleShape),
+            contentScale = ContentScale.Fit
+        )
+    }
+}
+
+@Composable
 fun StatusChip(icon: String, label: String, color: Color) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .background(Color(0xFF2C2C2C), RoundedCornerShape(14.dp))
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
-        Text(icon, fontSize = 10.sp)
+        Text(icon, fontSize = 11.sp)
         Spacer(modifier = Modifier.width(4.dp))
-        Text(label, fontSize = 10.sp, color = color, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-fun CompactButton(label: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.height(30.dp).width(64.dp),
-        colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color(0xFF2C2C2C))
-    ) {
-        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
-    }
-}
-
-@Composable
-fun PulseIcon() {
-    Box(
-        modifier = Modifier
-            .padding(top = 24.dp)
-            .size(50.dp)
-            .background(Color(0xFF64B5F6).copy(alpha = 0.1f), CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("🌙", fontSize = 24.sp)
+        Text(label, fontSize = 11.sp, color = color, fontWeight = FontWeight.Bold)
     }
 }
