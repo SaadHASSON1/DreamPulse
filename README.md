@@ -30,6 +30,13 @@
 - **📳 ميزة الهز (Shake to Stop)**: أوقف المنبه بهزة طبيعية من معصمك.
 - **🌌 التصميم الكوني**: واجهات تنبض بالحياة مع أيقونات واقعية للشمس والقمر.
 
+### ⌚ توافق شامل (Universal Compatibility):
+تم بناء التطبيق باستخدام تقنيات **Google Health Services**، مما يجعله متوافقاً مع جميع الساعات الذكية التي تعمل بنظام **Wear OS 3.0 فأحدث**، بما في ذلك:
+*   Samsung Galaxy Watch (4, 5, 6, 7 & Ultra)
+*   Google Pixel Watch (1, 2, 3)
+*   TicWatch Pro 5 & modern Wear OS devices
+*   Xiaomi Watch & Fossil Gen 6+
+
 </div>
 
 ---
@@ -49,6 +56,12 @@ We solved this worldwide frustration. Using advanced biometric sensors, **the al
 - **🛡️ Secure Dismissal**: "Hold to Dismiss" mechanism to prevent accidental deactivation.
 - **📳 Shake to Stop**: Stop the alarm with a natural wrist motion.
 - **🌌 Cosmic Aesthetics**: Realistic celestial bodies and starry dynamic backgrounds.
+
+### ⌚ Universal Compatibility:
+Built on **Google Health Services**, DreamPulse is fully compatible with all smartwatches running **Wear OS 3.0 or higher**, including:
+*   **Samsung Galaxy Watch** series (4 and newer)
+*   **Google Pixel Watch** series
+*   **TicWatch**, **Xiaomi Watch**, and **Fossil** (Wear OS 3+ models)
 
 ---
 
