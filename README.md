@@ -36,6 +36,12 @@
 *   **Google Pixel Watch 1** وأحدث.
 *   جميع الساعات الذكية التي تعمل بنظام **Wear OS 3.0 فأعلى**.
 
+### 💼 لمن هذا التطبيق؟ (Use Cases):
+صُمم DreamPulse ليحل مشكلة "القيلولة الضائعة" للفئات التي تملك وقتاً محدوداً:
+*   **الأطباء والممارسون الصحيون**: للحصول على راحة فعلية دقيقة بين المناوبات الطويلة.
+*   **الطلاب**: لتجديد النشاط الذهني بقيلولة محسوبة بالدقيقة بعد جلسات المذاكرة المكثفة.
+*   **المهنيون في بيئات العمل**: لأخذ "قيلولة القوة" (Power Nap) وضمان استغلال كل دقيقة راحة في نوم حقيقي.
+
 </div>
 
 ---
@@ -61,6 +67,12 @@ Built on **Google Health Services**, DreamPulse is fully compatible with:
 *   **Samsung Galaxy Watch 4** & higher.
 *   **Google Pixel Watch 1** & higher.
 *   All smartwatches running **Wear OS 3.0 or higher**.
+
+### 💼 Who is it for? (Use Cases):
+DreamPulse is the ultimate tool for high-pressure professionals and students:
+*   **Medical Professionals**: Get precise, actual rest between long on-call shifts.
+*   **Students**: Optimize brain recovery with perfectly timed study naps.
+*   **Corporate Workers**: Master the "Power Nap" by ensuring every minute of your break is spent in real physiological sleep.
 
 ---
 
