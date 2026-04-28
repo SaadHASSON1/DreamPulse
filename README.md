@@ -12,6 +12,7 @@
 
 #### ✨ المميزات الرئيسية:
 - **🧠 الاستيقاظ الذكي (Smart Wake-up)**: يكتشف التطبيق مرحلة النوم الخفيف ويوقظك فيها لضمان نشاطك.
+- **😴 وضع الغفوة الذكية (Smart Nap Mode)**: مثالي للقيلولة السريعة؛ حدد 20 أو 30 دقيقة وسيقوم التطبيق بضمان استيقاظك قبل الدخول في النوم العميق.
 - **📊 تتبع الحساسات البيومترية**: مراقبة دقيقة لنبض القلب وحركة الجسم باستخدام تقنيات سامسونج الصحية.
 - **🛡️ نظام منع الغفوة (Anti-Snooze)**: يتطلب ضغطاً مطولاً لإيقاف المنبه لضمان استيقاظك الفعلي.
 - **🌓 واجهة ديناميكية**: ألوان تتغير تلقائياً حسب الوقت لتوفير راحة بصرية تامة.
@@ -30,6 +31,7 @@
 
 #### ✨ Key Features:
 - **🧠 Intelligent Wake-up**: Analyzes motion and heart rate to trigger the alarm during light sleep phases.
+- **😴 Smart Nap Mode**: Perfectly optimized for power naps; set a quick 20-30 minute timer and wake up refreshed before hitting deep sleep.
 - **📊 Biometric Monitoring**: Real-time tracking of heart rate and physical activity via Samsung Health Services.
 - **🛡️ Secure Dismissal**: Features a "Long Press" mechanism to prevent accidental or half-asleep alarm deactivation.
 - **🌓 Dynamic UI**: A beautiful, time-aware interface that adjusts its aesthetics based on the time of day.
