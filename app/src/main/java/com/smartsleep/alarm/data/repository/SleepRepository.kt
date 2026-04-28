@@ -15,6 +15,7 @@ class SleepRepository @Inject constructor(
 ) {
     val sleepState: StateFlow<SleepState> = healthServicesManager.sleepState
     val isTracking: StateFlow<Boolean> = healthServicesManager.isTracking
+    val heartRate: StateFlow<Float> = healthServicesManager.heartRate
 
     fun setTracking(tracking: Boolean) {
         healthServicesManager.setTracking(tracking)

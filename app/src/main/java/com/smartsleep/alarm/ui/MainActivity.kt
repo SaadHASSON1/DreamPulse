@@ -142,5 +142,15 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         if (toRequest.isNotEmpty()) {
             requestPermissionLauncher.launch(toRequest.toTypedArray())
         }
+
+        // تحقق من صلاحية المنبهات الدقيقة (Android 12+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                startActivity(intent)
+                Toast.makeText(this, "Please allow exact alarms for reliable wake up", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 }

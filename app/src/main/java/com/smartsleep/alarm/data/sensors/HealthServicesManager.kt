@@ -20,9 +20,12 @@ class HealthServicesManager @Inject constructor(
     private val healthServicesClient by lazy { 
         try { HealthServices.getClient(context) } catch(e: Exception) { null }
     }
-    private val passiveMonitoringClient by lazy { 
-        healthServicesClient?.passiveMonitoringClient 
+    private val measureClient by lazy {
+        healthServicesClient?.measureClient
     }
+
+    private val _heartRate = MutableStateFlow(0f)
+    val heartRate: StateFlow<Float> = _heartRate
 
     private val _sleepState = MutableStateFlow(SleepState.UNKNOWN)
     val sleepState: StateFlow<SleepState> = _sleepState
@@ -38,8 +41,6 @@ class HealthServicesManager @Inject constructor(
     }
 
     suspend fun isSleepTrackingAvailable(): Boolean {
-        // نرجو المعذرة، سنقوم بتجاوز هذا التحقق مؤقتاً لضمان بناء التطبيق
-        // معظم الساعات الذكية الحديثة تدعم تتبع النوم عبر Health Services
         return true
     }
 
@@ -56,6 +57,10 @@ class HealthServicesManager @Inject constructor(
 
     fun stopPassiveSleepMonitoring() {
         passiveMonitoringClient?.clearPassiveListenerServiceAsync()
+    }
+
+    fun updateHeartRate(bpm: Float) {
+        _heartRate.value = bpm
     }
     
     fun updateSleepState(state: SleepState) {

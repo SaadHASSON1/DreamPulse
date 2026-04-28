@@ -23,7 +23,8 @@
 لقد قمنا بحل هذه المشكلة العالمية بذكاء. بفضل الحساسات البيومترية المتقدمة، **لا يبدأ المنبه بالعد التنازلي إلا عندما تغط في النوم فعلياً**. إذا طلبت 8 ساعات نوم، ستحصل على 8 ساعات نوم حقيقية، بغض النظر عن الوقت الذي استغرقته لتغفو.
 
 ### ✨ ميزات استثنائية:
-- **🧠 البداية الذكية (True Sleep Detection)**: المنبه ينتظرك حتى تنام، ثم يبدأ العد. أنت من يحدد "كم ستنام"، والتطبيق يضمن لك "الجودة".
+- **🧠 البداية الذكية (True Sleep Detection)**: خوارزمية متطورة مستوحاة من Samsung Health تدمج بيانات نبض القلب والحركة (Sensor Fusion) لضمان اكتشاف دقيق جداً للحظة النوم.
+- **🛡️ نظام الأمان (Safe Mode)**: جدولة فورية لمنبه احتياطي لضمان الاستيقاظ حتماً حتى في حال تعطل الحساسات أو تأخر النظام في اكتشاف النوم.
 - **⏱️ تحديد مرن لساعات النوم**: واجهة سهلة لضبط هدف النوم بدقة الدقيقة الواحدة، مع أزرار سريعة للضبط (+/- 30 دقيقة).
 - **🤝 التناظر البصري (Cosmic Symmetry)**: واجهة مستخدم مذهلة تعتمد على التناظر التام بين شاشتي المنبه والملخص.
 - **🛡️ منع الإغلاق الخاطئ (Hold to Dismiss)**: يتطلب ضغطاً مطولاً لضمان استيقاظك الفعلي.
@@ -58,7 +59,8 @@ Ever wondered why you wake up tired even after setting an 8-hour alarm?
 We solved this worldwide frustration. Using advanced biometric sensors, **the alarm countdown ONLY starts when you are actually asleep**. If you set an 8-hour goal, you get exactly 8 hours of real physiological rest. 
 
 ### ✨ Core Features:
-- **🧠 True Sleep Detection**: The countdown waits for you. Your sleep goal is guaranteed from the moment of actual sleep onset.
+- **🧠 True Sleep Detection (Samsung Style)**: Advanced sensor fusion (Heart Rate + Motion) inspired by Samsung Health algorithms for pinpoint accuracy.
+- **🛡️ Safe Mode Fallback**: Immediate scheduling of a backup alarm to guarantee you wake up even if sensors are delayed.
 - **⏱️ Precise Sleep Goals**: Easily adjust your sleep duration with 1-minute precision.
 - **🤝 Symmetrical Design**: A masterfully crafted UI where every element is balanced for a premium feel.
 - **🛡️ Secure Dismissal**: "Hold to Dismiss" mechanism to prevent accidental deactivation.
