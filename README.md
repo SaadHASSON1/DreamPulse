@@ -20,6 +20,7 @@
 - **🧠 الاستيقاظ الذكي (Smart Window)**: يكتشف مرحلة النوم الخفيف ويوقظك فيها لتجنب شعور "الخمول الصباحي".
 - **🤝 التناظر البصري (Cosmic Symmetry)**: واجهة مستخدم مذهلة تعتمد على التناظر التام بين شاشتي المنبه والملخص لتجربة بصرية مريحة وفخمة.
 - **🛡️ منع الإغلاق الخاطئ (Hold to Dismiss)**: يتطلب ضغطاً مطولاً لإيقاف المنبه، مما يضمن أنك استيقظت فعلياً ولن تعود للنوم بالخطأ.
+- **⏱️ تحديد مرن لساعات النوم**: واجهة سهلة لضبط هدف النوم بدقة الدقيقة الواحدة، مع أزرار سريعة للضبط (+/- 30 دقيقة) لتناسب القيلولة أو النوم العميق.
 - **📳 ميزة الهز (Shake to Stop)**: يمكنك إيقاف المنبه بمجرد هز ساعتك، ميزة للمحترفين تضمن تفاعلاً طبيعياً وسريعاً.
 - **📊 ملخص الحيوية (Vitality Summary)**: شاشة ملخص صباحية تظهر لك مدة نومك الفعلية مع رسائل تحفيزية قوية (ALL CAPS) لتبدأ يومك بكل طاقة.
 - **🌌 التصميم الكوني**: خلفيات مرصعة بالنجوم، أيقونات واقعية للشمس والقمر، وتأثيرات نبضية (Pulse) تجعل شاشة ساعتك تنبض بالحياة.
@@ -34,6 +35,7 @@
 - **🧠 Intelligent Wake-up**: Analyzes biometric data to wake you up during your lightest sleep phase.
 - **🤝 Symmetrical Design**: A masterfully crafted UI where every element on the Alarm (Sun) screen mirrors the Summary (Vitality) screen for a premium feel.
 - **🛡️ Secure Dismissal**: The signature "Hold to Dismiss" mechanism prevents accidental deactivation while half-asleep.
+- **⏱️ Precise Sleep Goals**: Easily adjust your sleep duration with 1-minute precision or quick 30-minute increments, perfect for power naps or full nights.
 - **📳 Shake to Stop**: A pro feature allowing you to stop the alarm with a natural wrist motion.
 - **📊 Vitality Summary**: Start your day with a bold, high-impact summary of your rest duration and motivational prompts.
 - **🌌 Cosmic Aesthetics**: Featuring realistic 3D celestial bodies, starry dynamic backgrounds, and smooth micro-animations.
