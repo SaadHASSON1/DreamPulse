@@ -10,12 +10,19 @@ import android.hardware.SensorManager
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -51,43 +58,50 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        if (permissions.all { it.value }) {
-            // Permissions granted
-        } else {
-            Toast.makeText(this, "Permissions required for sleep tracking", Toast.LENGTH_LONG).show()
+        Log.d("MainActivity", "Permissions result: $permissions")
+        if (!permissions.all { it.value }) {
+            Log.w("MainActivity", "Some permissions were denied or background sensor needs manual approval")
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        Log.d("MainActivity", "onCreate called (Clean Start)")
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         offBodySensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)
         heartRateSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_HEART_RATE)
         
-        checkPermissions()
-
+        // لا نطلب الصلاحيات هنا لضمان هدوء التطبيق عند الفتح
+        
         setContent {
             SmartSleepTheme {
                 MainScreen(viewModel)
+            }
+        }
+
+        // مراقبة طلب الصلاحيات اليدوي من الـ ViewModel
+        lifecycleScope.launch {
+            viewModel.permissionRequestEvent.collect {
+                checkPermissions()
             }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        // تأخير بسيط لتجنب التقطيع عند فتح التطبيق
+        
+        // مراقبة حالة التتبع لتشغيل الحساسات في الواجهة "فقط" عند الحاجة
         lifecycleScope.launch {
-            delay(500)
-            accelerometer?.let {
-                sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI)
-            }
-            offBodySensor?.let {
-                sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_NORMAL)
-            }
-            heartRateSensor?.let {
-                sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI)
+            viewModel.isTrackingState.collectLatest { active ->
+                if (active) {
+                    accelerometer?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI) }
+                    heartRateSensor?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI) }
+                    offBodySensor?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_NORMAL) }
+                } else {
+                    sensorManager?.unregisterListener(this@MainActivity)
+                }
             }
         }
     }
@@ -98,6 +112,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
+        // إذا كان التتبع فعالاً، نترك المهمة للخدمة لكي لا يحدث تضارب في العتاد
+        if (viewModel.isTracking.value) return
+        
         when (event?.sensor?.type) {
             Sensor.TYPE_ACCELEROMETER -> {
                 val x = event.values[0]
@@ -130,35 +147,70 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     private fun checkPermissions() {
-        val permissions = mutableListOf(
-            Manifest.permission.BODY_SENSORS,
-            Manifest.permission.BODY_SENSORS_BACKGROUND,
-            Manifest.permission.ACTIVITY_RECOGNITION
+        Log.d("MainActivity", "Checking permissions...")
+        
+        val hasBody = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BODY_SENSORS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val hasBg = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BODY_SENSORS_BACKGROUND) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        
+        Toast.makeText(this, "Sensors: $hasBody, Background: $hasBg", Toast.LENGTH_SHORT).show()
+
+        val primaryPermissions = mutableListOf(
+            android.Manifest.permission.BODY_SENSORS,
+            android.Manifest.permission.ACTIVITY_RECOGNITION
         )
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            primaryPermissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
         }
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            permissions.add(Manifest.permission.FOREGROUND_SERVICE_HEALTH)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            primaryPermissions.add(android.Manifest.permission.FOREGROUND_SERVICE_HEALTH)
         }
 
-        val toRequest = permissions.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        val missingPrimary = primaryPermissions.filter {
+            androidx.core.content.ContextCompat.checkSelfPermission(this, it) != android.content.pm.PackageManager.PERMISSION_GRANTED
         }
 
-        if (toRequest.isNotEmpty()) {
-            requestPermissionLauncher.launch(toRequest.toTypedArray())
+        if (missingPrimary.isNotEmpty()) {
+            Log.d("MainActivity", "Requesting primary permissions: $missingPrimary")
+            requestPermissionLauncher.launch(missingPrimary.toTypedArray())
+        } else {
+            // إذا كانت الصلاحيات الأساسية موجودة، نطلب صلاحية الخلفية
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q &&
+                androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BODY_SENSORS_BACKGROUND) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Log.d("MainActivity", "Requesting Background Sensors permission")
+                android.widget.Toast.makeText(this, "IMPORTANT: Please set Sensor Permission to 'Allow all the time'", android.widget.Toast.LENGTH_LONG).show()
+                requestPermissionLauncher.launch(arrayOf(android.Manifest.permission.BODY_SENSORS_BACKGROUND))
+            }
         }
 
-        // تحقق من صلاحية المنبهات الدقيقة (Android 12+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-            if (!alarmManager.canScheduleExactAlarms()) {
-                val intent = Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+        // طلب استثناء من تحسين البطارية (تأمين ضد الانهيار)
+        try {
+            val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+            if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                Log.d("MainActivity", "Battery optimization NOT ignored. Requesting...")
+                val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = android.net.Uri.parse("package:$packageName")
+                }
                 startActivity(intent)
-                Toast.makeText(this, "Please allow exact alarms for reliable wake up", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Battery optimization request failed", e)
+            // محاولة فتح الإعدادات العامة كخيار بديل آمن
+            try {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                startActivity(intent)
+            } catch (e2: Exception) {
+                Log.e("MainActivity", "All battery settings requests failed", e2)
+            }
+        }
+
+        // تحقق من صلاحية المنبهات الدقيقة
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                startActivity(intent)
             }
         }
     }

@@ -24,7 +24,7 @@ class NotificationHelper @Inject constructor(
         val trackingChannel = NotificationChannel(
             TRACKING_CHANNEL_ID,
             "Sleep Tracking",
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_HIGH
         )
         val alarmChannel = NotificationChannel(
             ALARM_CHANNEL_ID,

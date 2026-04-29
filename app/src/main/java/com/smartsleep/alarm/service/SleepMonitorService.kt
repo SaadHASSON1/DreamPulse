@@ -20,9 +20,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.os.PowerManager
 import javax.inject.Inject
 import kotlin.math.sqrt
 
@@ -36,6 +38,7 @@ class SleepMonitorService : Service(), SensorEventListener {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var sleepDurationMillis: Long = 0
     private var sensorManager: SensorManager? = null
+    private var wakeLock: PowerManager.WakeLock? = null
     
     // متغيرات تتبع النوم المتقدمة (النسخة الآمنة)
     private var serviceStartTime: Long = 0
@@ -43,36 +46,132 @@ class SleepMonitorService : Service(), SensorEventListener {
     private val motionWindow = mutableListOf<Float>()
     private var lastMotionTime: Long = System.currentTimeMillis()
     private var isSleepConfirmed = false
+    private var restingHeartRate = 0f
+    private var motionSilenceCount = 0
+
+    override fun onCreate() {
+        super.onCreate()
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DreamPulse:SleepMonitor")
+        wakeLock?.acquire() // قفل المعالج لضمان عدم توقف الحساسات
+        Log.d("SleepMonitor", "WakeLock acquired")
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("SleepMonitor", "Service Starting (Ultra-Reliability Mode)...")
-        serviceStartTime = System.currentTimeMillis()
-        sleepDurationMillis = intent?.getLongExtra(EXTRA_SLEEP_DURATION, 8 * 3600 * 1000L) ?: 0
+        val action = intent?.action
         
-        val notificationText = "DreamPulse: Initializing smart monitoring..."
-        startForeground(
-            NotificationHelper.NOTIFICATION_ID,
-            notificationHelper.getTrackingNotification(notificationText)
-        )
+        if (action == ACTION_STOP_MONITORING) {
+            sensorManager?.unregisterListener(this)
+            healthServicesManager.stopPassiveSleepMonitoring()
+            cancelAlarm()
+            stopForeground(true)
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
-        setupSensors()
-        observeSleepState()
-        sleepRepository.startMonitoring()
-        
-        // --- منبه الأمان (Fail-Safe) ---
-        // نقوم بضبط منبه احتياطي فوراً للوقت الأقصى (المدة + ساعة إضافية)
-        // لضمان الاستيقاظ حتى لو فشل اكتشاف النوم
-        val fallbackTime = System.currentTimeMillis() + sleepDurationMillis + (60 * 60 * 1000L)
-        scheduleAlarm(fallbackTime)
-        
-        updateNotification("DreamPulse: Safe-Monitoring Active (Alarm Guarded)")
-        
-        serviceScope.launch(Dispatchers.Main) {
-            val isSim = healthServicesManager.isSimulation.value
-            if (isSim) updateNotification("SIMULATION STARTED: Waiting for sleep signal...")
+        // قراءة المدة وتصفير الحالات لضمان بداية نظيفة
+        sleepDurationMillis = intent?.getLongExtra(EXTRA_SLEEP_DURATION, 480 * 60 * 1000L) ?: 480 * 60 * 1000L
+        serviceStartTime = System.currentTimeMillis()
+        isSleepConfirmed = false
+        healthServicesManager.resetStates()
+
+        // إطلاق الإشعار الأساسي مع تحديد نوع الخدمة للوصول للحساسات
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(
+                NotificationHelper.NOTIFICATION_ID,
+                notificationHelper.getTrackingNotification("DreamPulse: Monitoring Started"),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH
+            )
+        } else {
+            startForeground(
+                NotificationHelper.NOTIFICATION_ID,
+                notificationHelper.getTrackingNotification("DreamPulse: Monitoring Started")
+            )
+        }
+
+        if (action == ACTION_SIMULATE_SLEEP) {
+            confirmSleep("Manual Simulation", isSimulation = true)
+            return START_STICKY
+        }
+
+        try {
+            // اهتزاز خفيف لتأكيد استلام الأمر
+            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            vibrator?.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+
+            setupSensors()
+            observeSleepState()
+            observeHeartRate()
+            
+            // منح النظام نصف ثانية للاستعداد قبل طلب الحساسات
+            serviceScope.launch {
+                delay(500)
+                healthServicesManager.startHeartRateMeasurement()
+                delay(1000)
+                healthServicesManager.startHeartRateMeasurement() // محاولة ثانية للتأكيد
+            }
+            
+            startHeartRateDutyCycle() 
+            healthServicesManager.startPassiveSleepMonitoring()
+            
+            scheduleBackupAlarm()
+            
+            android.widget.Toast.makeText(this, "DreamPulse: Tracking Active! 🚀", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("SleepMonitor", "Start failed", e)
         }
 
         return START_STICKY
+    }
+
+    private fun scheduleBackupAlarm() {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, AlarmReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, 1002, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        // منبه احتياطي بعد المدة المختارة + 30 دقيقة لضمان الاستيقاظ في أسوأ الظروف
+        val backupTime = System.currentTimeMillis() + sleepDurationMillis + (30 * 60 * 1000L)
+        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, backupTime, pendingIntent)
+        Log.d("SleepMonitor", "Backup alarm set for safety.")
+    }
+
+    private fun startHeartRateDutyCycle() {
+        serviceScope.launch {
+            while (true) {
+                val timeSinceStart = System.currentTimeMillis() - serviceStartTime
+                
+                // 1. مرحلة الاستكشاف والبداية (أول 15 دقيقة) أو نافذة الاستيقاظ الذكي
+                if (timeSinceStart < 15 * 60 * 1000L || isSmartWindowActive) {
+                    healthServicesManager.startHeartRateMeasurement(forceRestart = false)
+                    delay(30000) 
+                } 
+                // 2. مرحلة النوم العميق (بعد التأكيد): توفير فائق (يغلق كل شيء ليوفر البطارية)
+                else if (isSleepConfirmed) {
+                    healthServicesManager.startHeartRateMeasurement(forceRestart = true)
+                    delay(30000) // قياس لـ 30 ثانية
+                    healthServicesManager.stopHeartRateMeasurement() // إغلاق الحساس والتمرين
+                    delay(7 * 60 * 1000L) // استراحة 7 دقائق
+                }
+                // 3. مرحلة ما قبل النوم: قياس دوري متكرر
+                else {
+                    healthServicesManager.startHeartRateMeasurement(forceRestart = true)
+                    delay(40000)
+                    healthServicesManager.stopHeartRateMeasurement()
+                    delay(2 * 60 * 1000L)
+                }
+            }
+        }
+    }
+
+    private fun observeHeartRate() {
+        serviceScope.launch {
+            healthServicesManager.heartRate.collectLatest { bpm ->
+                if (bpm > 0) {
+                    updateNotification("DreamPulse: Tracking active... [Pulse: ${bpm.toInt()} BPM]")
+                }
+            }
+        }
     }
 
     private fun observeSleepState() {
@@ -82,51 +181,60 @@ class SleepMonitorService : Service(), SensorEventListener {
                 if (state == SleepState.ASLEEP && !isSleepConfirmed) {
                     val isSim = healthServicesManager.isSimulation.value
                     serviceScope.launch(Dispatchers.Main) {
-                        android.widget.Toast.makeText(this@SleepMonitorService, "System Signal: Sleep Detected", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(this@SleepMonitorService, if (isSim) "SIMULATION ACTIVE" else "System Signal: Sleep Detected", android.widget.Toast.LENGTH_SHORT).show()
                     }
-                    confirmSleep("System Signal", isSimulation = isSim)
+                    confirmSleep(if (isSim) "Simulation" else "System Signal", isSimulation = isSim)
                 }
             }
         }
     }
 
     private fun setupSensors() {
+        Log.d("SleepMonitor", "Registering Direct Hardware Sensors...")
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         val hr = sensorManager?.getDefaultSensor(Sensor.TYPE_HEART_RATE)
         
-        // استخدام SENSOR_DELAY_UI لدقة أفضل في تحليل الحركة
-        sensorManager?.registerListener(this, accel, SensorManager.SENSOR_DELAY_UI)
-        sensorManager?.registerListener(this, hr, SensorManager.SENSOR_DELAY_UI)
+        // تسجيل الحساسات مباشرة في العتاد
+        sensorManager?.registerListener(this, accel, SensorManager.SENSOR_DELAY_FASTEST, 0)
+        hr?.let {
+            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_FASTEST, 0)
+            Log.i("SleepMonitor", "Direct HR Sensor Registered")
+        }
+        
+        Log.d("SleepMonitor", "Sensors Registered.")
     }
 
     private fun confirmSleep(source: String, isSimulation: Boolean = false) {
         if (isSleepConfirmed) return
         
-        // صمام أمان: لا يمكن تأكيد النوم في أول 5 دقائق من تشغيل الخدمة (إلا في وضع المحاكاة)
-        // تم تقليلها من 10 دقائق لتسريع الاكتشاف في القيلولة القصيرة
-        if (!isSimulation && System.currentTimeMillis() - serviceStartTime < 5 * 60 * 1000L) {
+        // صمام أمان: تقليل وقت الانتظار لـ 2 دقيقة لتسريع الاكتشاف في الاختبار
+        if (!isSimulation && System.currentTimeMillis() - serviceStartTime < 2 * 60 * 1000L) {
             Log.d("SleepMonitor", "Sleep detected too early ($source), ignoring for safety.")
             return
         }
 
         isSleepConfirmed = true
-        Log.i("SleepMonitor", "🎉 True Sleep Confirmed via $source (Simulation: $isSimulation)")
+        healthServicesManager.updateSleepState(SleepState.ASLEEP)
         val now = System.currentTimeMillis()
-        val startTime = now
+        Log.i("SleepMonitor", "🎉 Sleep Confirmed via $source. Duration: $sleepDurationMillis ms")
 
         serviceScope.launch {
-            sleepRepository.saveSleepStartTime(startTime)
+            sleepRepository.saveSleepStartTime(now)
         }
         
-        // 1. تقليل استهلاك الطاقة: إيقاف حساس النبض بعد اكتشاف النوم
-        val hrSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_HEART_RATE)
-        sensorManager?.unregisterListener(this, hrSensor)
+        // 1. تقليل استهلاك الطاقة: إيقاف الحساسات بعد اكتشاف النوم
+        try {
+            sensorManager?.unregisterListener(this)
+            healthServicesManager.stopPassiveSleepMonitoring()
+        } catch (e: Exception) {
+            Log.e("SleepMonitor", "Error stopping sensors", e)
+        }
         
         // 2. تحديث المنبه للوقت الفعلي بدقة (بناءً على اختيار المستخدم)
         val targetWakeTime = now + sleepDurationMillis
         
-        // في وضع المحاكاة أو الفترات القصيرة، نتجاوز الـ 30 دقيقة الاحتياطية
+        // في وضع المحاكاة أو الفترات القصيرة جداً، نتجاوز الـ 30 دقيقة الاحتياطية
         if (isSimulation || sleepDurationMillis < 30 * 60 * 1000L) {
             scheduleAlarmImmediate(targetWakeTime)
         } else {
@@ -134,6 +242,9 @@ class SleepMonitorService : Service(), SensorEventListener {
         }
         
         serviceScope.launch(Dispatchers.Main) {
+            val minutes = sleepDurationMillis / (1000 * 60)
+            android.widget.Toast.makeText(this@SleepMonitorService, "Sleep Confirmed! Alarm in $minutes mins", android.widget.Toast.LENGTH_LONG).show()
+            
             val timeStr = java.text.SimpleDateFormat("HH:mm").format(java.util.Date(targetWakeTime))
             updateNotification("SLEEP DETECTED! Alarm set for $timeStr")
         }
@@ -148,11 +259,15 @@ class SleepMonitorService : Service(), SensorEventListener {
                 val magnitude = sqrt(x * x + y * y + z * z) - 9.81f
                 val absMag = if (magnitude < 0) -magnitude else magnitude
                 
-                // إضافة الحركة للنافذة (آخر 50 قراءة)
                 motionWindow.add(absMag)
                 if (motionWindow.size > 50) motionWindow.removeAt(0)
 
-                if (absMag > 0.15f) { // خفض العتبة لزيادة الحساسية ومنع الإنذارات المبكرة
+                // تحديث الإشعار بالحركة اللحظية ليعرف المستخدم أن الحساس يعمل
+                if (!isSleepConfirmed && System.currentTimeMillis() % 5000 < 1000) {
+                    updateNotification("DreamPulse: Monitoring... [Motion: ${String.format("%.2f", absMag)}]")
+                }
+
+                if (absMag > 0.15f) {
                     lastMotionTime = System.currentTimeMillis()
                     if (isSleepConfirmed && isSmartWindowActive) triggerAlarmNow()
                 }
@@ -160,48 +275,40 @@ class SleepMonitorService : Service(), SensorEventListener {
             Sensor.TYPE_HEART_RATE -> {
                 val bpm = event.values[0]
                 if (bpm > 30) {
-                    // تحديث الحالة العامة للحساسات
                     healthServicesManager.updateHeartRate(bpm)
-                    healthServicesManager.updateOnBodyStatus(true)
-                    
                     hrWindow.add(bpm)
                     if (hrWindow.size > 20) hrWindow.removeAt(0)
+                    
+                    // تحديث الإشعار بالنبض اللحظي (دليل الحياة للحساس)
+                    updateNotification("DreamPulse: Tracking active... [Pulse: ${bpm.toInt()} BPM]")
+                    
                     checkAdvancedHeuristic()
-                } else {
-                    // إذا كان النبض صفر أو غير موجود (أثناء الشحن مثلاً)
-                    healthServicesManager.updateOnBodyStatus(false)
                 }
             }
         }
     }
 
     private fun checkAdvancedHeuristic() {
-        if (isSleepConfirmed || hrWindow.size < 15) return
+        if (isSleepConfirmed || hrWindow.size < 10) return
         
         val now = System.currentTimeMillis()
         val timeSinceLastMotion = now - lastMotionTime
-        
-        // 1. تحليل استقرار النبض (معيار سامسونج للدقة)
         val avgHR = hrWindow.average().toFloat()
-        // استقرار ذكي: الاختلاف لا يتعدى 4 نبضات عن المتوسط (تم تعديلها لسرعة الاكتشاف)
-        val isHRStable = hrWindow.all { it < (avgHR + 4) && it > (avgHR - 4) }
+
+        if (restingHeartRate == 0f && (now - serviceStartTime) > 10 * 60 * 1000L) {
+            restingHeartRate = avgHR
+        }
         
-        // التأكد من أن النبض مستقر وفي مستواه الطبيعي للهناء (أقل من 80)
-        val isLowHR = avgHR < 80f
+        val isHRDropped = if (restingHeartRate > 0) avgHR < (restingHeartRate * 0.94f) else avgHR < 75f
+        val isDeepStationary = timeSinceLastMotion > 8 * 60 * 1000L
         
-        // 2. تحليل السكون التام (Actigraphy Clinical Standard)
-        // SMA: Signal Magnitude Area - حساب متوسط الحركة في النافذة
-        val avgMotion = if (motionWindow.isNotEmpty()) motionWindow.average().toFloat() else 1f
-        
-        // شرط السكون: 15 دقيقة من عدم الحركة مع متوسط حركة شبه معدوم
-        val isDeepStationary = timeSinceLastMotion > 15 * 60 * 1000L && avgMotion < 0.03f
-        
-        // Decision: Sensor Fusion (Samsung-Grade)
-        if (isDeepStationary && isHRStable && isLowHR) {
-            serviceScope.launch(Dispatchers.Main) {
-                android.widget.Toast.makeText(this@SleepMonitorService, "Sensors: Deep Sleep Confirmed", android.widget.Toast.LENGTH_SHORT).show()
+        if (isDeepStationary && isHRDropped) {
+            motionSilenceCount++
+            if (motionSilenceCount >= 3) {
+                confirmSleep("Advanced Bio-Fusion Algorithm")
             }
-            confirmSleep("Pro Sensor Fusion (Samsung-Grade)")
+        } else {
+            motionSilenceCount = 0
         }
     }
 
@@ -275,21 +382,52 @@ class SleepMonitorService : Service(), SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    private fun cancelAlarm() {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-        val intent = Intent(this, com.smartsleep.alarm.receiver.AlarmReceiver::class.java)
+    private fun scheduleKeepAlive() {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, com.smartsleep.alarm.receiver.BootReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
-            this,
-            ALARM_REQUEST_CODE,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            this, 2002, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        // إعادة التشغيل كل 20 دقيقة كإجراء احترازي
+        alarmManager.setInexactRepeating(
+            AlarmManager.RTC_WAKEUP,
+            System.currentTimeMillis() + 20 * 60 * 1000L,
+            20 * 60 * 1000L,
+            pendingIntent
+        )
+    }
+
+    private fun cancelKeepAlive() {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, com.smartsleep.alarm.receiver.BootReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this, 2002, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         alarmManager.cancel(pendingIntent)
-        Log.d("SleepMonitor", "Alarm cancelled.")
+    }
+
+    private fun cancelAlarm() {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(this, com.smartsleep.alarm.receiver.AlarmReceiver::class.java)
+        
+        // إلغاء المنبه الأساسي
+        val p1 = PendingIntent.getBroadcast(this, ALARM_REQUEST_CODE, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        alarmManager.cancel(p1)
+
+        // إلغاء المنبه الاحتياطي
+        val p2 = PendingIntent.getBroadcast(this, 1002, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        alarmManager.cancel(p2)
+        
+        Log.d("SleepMonitor", "All alarms cancelled.")
     }
 
     override fun onDestroy() {
-        cancelAlarm() // إلغاء المنبه عند إيقاف الخدمة يدوياً
+        // لا نلغي المنبه هنا! المنبه يجب أن يظل فعالاً في النظام حتى لو قُتلت الخدمة.
+        cancelKeepAlive() // نوقف منبه "نبض الحياة" فقط عند الإغلاق اليدوي المتعمد
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+            Log.d("SleepMonitor", "WakeLock released")
+        }
         sensorManager?.unregisterListener(this)
         sleepRepository.stopMonitoring()
         healthServicesManager.setSimulation(false)
@@ -305,6 +443,8 @@ class SleepMonitorService : Service(), SensorEventListener {
 
     companion object {
         const val EXTRA_SLEEP_DURATION = "extra_sleep_duration"
+        const val ACTION_STOP_MONITORING = "com.smartsleep.alarm.ACTION_STOP_MONITORING"
+        const val ACTION_SIMULATE_SLEEP = "com.smartsleep.alarm.ACTION_SIMULATE_SLEEP"
         private const val ALARM_REQUEST_CODE = 1001
     }
 }

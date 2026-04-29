@@ -1,5 +1,8 @@
 package com.smartsleep.alarm.ui.viewmodel
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.ViewModel
@@ -15,6 +18,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -31,6 +36,9 @@ class MainViewModel @Inject constructor(
     private val _sleepDurationMinutes = MutableStateFlow(480) // 8 hours default
     val sleepDurationMinutes: StateFlow<Int> = _sleepDurationMinutes
 
+    private val _permissionRequestEvent = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(replay = 0)
+    val permissionRequestEvent = _permissionRequestEvent.asSharedFlow()
+
     private val _currentSleepState = MutableStateFlow(SleepState.UNKNOWN)
     val currentSleepState: StateFlow<SleepState> = _currentSleepState
     
@@ -44,6 +52,9 @@ class MainViewModel @Inject constructor(
 
     private val _currentHeartRate = MutableStateFlow(0f)
     val currentHeartRate: StateFlow<Float> = _currentHeartRate
+
+    private val _isTrackingState = MutableStateFlow(false)
+    val isTrackingState: StateFlow<Boolean> = _isTrackingState
 
     private val _userName = MutableStateFlow("")
     val userName: StateFlow<String> = _userName
@@ -79,9 +90,11 @@ class MainViewModel @Inject constructor(
     }
 
     fun startTracking() {
-        if (isTracking.value) return // منع التكرار
+        if (isTrackingState.value) return // منع التكرار
+        _isTrackingState.value = true
         
         viewModelScope.launch {
+            _permissionRequestEvent.emit(Unit)
             sleepRepository.saveSleepStartTime(System.currentTimeMillis())
         }
         
@@ -92,15 +105,29 @@ class MainViewModel @Inject constructor(
         try {
             context.startForegroundService(intent)
             sleepRepository.setTracking(true)
+            sleepRepository.startMonitoring() // تشغيل المراقبة الخلفية فقط عند الضغط على الزر
         } catch (e: Exception) {
             android.widget.Toast.makeText(context, "Error starting service: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
             e.printStackTrace()
+            _isTrackingState.value = false // تصفير الحالة في حال الفشل
         }
     }
 
+    fun checkPermissions() {
+        val sensorsGranted = context.checkSelfPermission(Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED
+        val backgroundSensorsGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            context.checkSelfPermission("android.permission.BODY_SENSORS_BACKGROUND") == PackageManager.PERMISSION_GRANTED
+        } else true
+        
+        // لا نقوم بتشغيل المراقبة هنا أبداً، ننتظر ضغطة المستخدم على الزر
+    }
+
     fun stopTracking() {
-        val intent = Intent(context, SleepMonitorService::class.java)
-        context.stopService(intent)
+        _isTrackingState.value = false
+        val intent = Intent(context, SleepMonitorService::class.java).apply {
+            action = SleepMonitorService.ACTION_STOP_MONITORING
+        }
+        context.startForegroundService(intent)
         sleepRepository.setTracking(false)
         healthServicesManager.updateSleepState(SleepState.UNKNOWN)
         
@@ -111,13 +138,12 @@ class MainViewModel @Inject constructor(
 
     fun simulateSleep() {
         android.widget.Toast.makeText(context, "Simulating Sleep...", android.widget.Toast.LENGTH_SHORT).show()
-        // تصفير الحالة أولاً ثم تحويلها لـ ASLEEP لضمان شعور النظام بالتغيير في كل مرة
-        viewModelScope.launch {
-            healthServicesManager.setSimulation(true)
-            healthServicesManager.updateSleepState(com.smartsleep.alarm.domain.model.SleepState.UNKNOWN)
-            kotlinx.coroutines.delay(100) // تأخير بسيط جداً لضمان وصول التحديث الأول
-            healthServicesManager.updateSleepState(com.smartsleep.alarm.domain.model.SleepState.ASLEEP)
+        // إرسال إشارة مباشرة للخدمة لضمان الاستجابة الفورية مع تزويدها بالوقت المختار
+        val intent = Intent(context, com.smartsleep.alarm.service.SleepMonitorService::class.java).apply {
+            action = com.smartsleep.alarm.service.SleepMonitorService.ACTION_SIMULATE_SLEEP
+            putExtra(com.smartsleep.alarm.service.SleepMonitorService.EXTRA_SLEEP_DURATION, _sleepDurationMinutes.value * 60 * 1000L)
         }
+        context.startForegroundService(intent)
     }
 
     fun resetSleepSummary() {

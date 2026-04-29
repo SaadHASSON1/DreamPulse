@@ -16,20 +16,22 @@ class BootReceiver : BroadcastReceiver() {
     @javax.inject.Inject lateinit var preferencesManager: com.smartsleep.alarm.data.local.PreferencesManager
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            val scope = CoroutineScope(Dispatchers.IO)
-            scope.launch {
-                val isActive = preferencesManager.isTrackingActive.first()
-                if (isActive) {
-                    val duration = preferencesManager.sleepDuration.first()
-                    val serviceIntent = Intent(context, com.smartsleep.alarm.service.SleepMonitorService::class.java).apply {
-                        putExtra(com.smartsleep.alarm.service.SleepMonitorService.EXTRA_SLEEP_DURATION, duration * 60 * 1000L)
-                    }
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            val isActive = preferencesManager.isTrackingActive.first()
+            if (isActive) {
+                val duration = preferencesManager.sleepDuration.first()
+                val serviceIntent = Intent(context, com.smartsleep.alarm.service.SleepMonitorService::class.java).apply {
+                    putExtra(com.smartsleep.alarm.service.SleepMonitorService.EXTRA_SLEEP_DURATION, duration * 60 * 1000L)
+                }
+                try {
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                         context.startForegroundService(serviceIntent)
                     } else {
                         context.startService(serviceIntent)
                     }
+                } catch (e: Exception) {
+                    android.util.Log.e("BootReceiver", "Failed to restart service", e)
                 }
             }
         }

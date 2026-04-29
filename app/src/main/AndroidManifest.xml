@@ -21,6 +21,8 @@
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <uses-feature android:name="android.hardware.type.watch" />
+    <uses-feature android:name="android.hardware.sensor.heartrate" android:required="true" />
+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
 
     <application
         android:name=".SmartSleepApp"
@@ -66,7 +68,7 @@
 
         <service
             android:name=".data.sensors.SleepPassiveListenerService"
-            android:permission="com.google.android.gms.permission.BIND_HEALTH_DATA"
+            android:permission="com.google.android.gms.permission.BIND_HEALTH_SERVICES"
             android:exported="true" />
 
         <!-- Receiver for AlarmManager -->

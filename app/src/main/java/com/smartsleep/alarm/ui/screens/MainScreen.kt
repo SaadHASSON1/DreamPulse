@@ -70,7 +70,7 @@ enum class AppScreen {
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
-    val isTracking by viewModel.isTracking.collectAsState()
+    val isTracking by viewModel.isTrackingState.collectAsState()
     val durationMin by viewModel.sleepDurationMinutes.collectAsState()
     val sleepState by viewModel.currentSleepState.collectAsState()
     val currentHeartRate by viewModel.currentHeartRate.collectAsState()
@@ -79,12 +79,15 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
     // إدارة حالة الشاشة الحالية
     val currentScreen = remember { mutableStateOf(AppScreen.WELCOME) }
 
-    // مزامنة الشاشة مع حالة التتبع الفعلية
+    // مزامنة الشاشة مع حالة التتبع الفعلية (بقفل أمان)
     LaunchedEffect(isTracking) {
         if (isTracking) {
             currentScreen.value = AppScreen.TRACKING
-        } else if (currentScreen.value == AppScreen.TRACKING) {
-            currentScreen.value = AppScreen.SETUP
+        } else {
+            // نعود لصفحة الإعدادات فقط إذا كنا في صفحة المراقبة وانتهى التتبع
+            if (currentScreen.value == AppScreen.TRACKING) {
+                currentScreen.value = AppScreen.SETUP
+            }
         }
     }
 
@@ -404,7 +407,7 @@ fun MonitoringScreen(
         ) {
             Text(
                 text = if (sleepState == SleepState.ASLEEP) "Sweet Dreams" else "Monitoring Sleep",
-                fontSize = 16.sp, // حجم أكبر للوضوح و الفخامة
+                fontSize = 16.sp,
                 color = if (sleepState == SleepState.ASLEEP) Color(0xFF81C784) else Color(0xFF90CAF9),
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
