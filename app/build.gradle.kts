@@ -57,9 +57,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.8.1")
     
-    // Wear OS Tiles
-    implementation("androidx.wear.tiles:tiles:1.5.0-alpha01")
-    implementation("androidx.wear.protolayout:protolayout:1.3.0-alpha01")
-    implementation("androidx.wear.protolayout:protolayout-material:1.3.0-alpha01")
-    implementation("androidx.wear.protolayout:protolayout-expression:1.3.0-alpha01")
+    // Wear OS Tiles (Stable Versions)
+    implementation("androidx.wear.tiles:tiles:1.4.0")
+    implementation("androidx.wear.protolayout:protolayout:1.2.0")
+    implementation("androidx.wear.protolayout:protolayout-material:1.2.0")
+    implementation("androidx.wear.protolayout:protolayout-expression:1.2.0")
 }

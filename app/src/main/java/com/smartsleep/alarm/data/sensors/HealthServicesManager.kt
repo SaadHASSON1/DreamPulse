@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.health.services.client.HealthServices
 import androidx.health.services.client.data.PassiveListenerConfig
 import androidx.health.services.client.data.UserActivityState
-import androidx.health.services.client.data.DataType
 import com.smartsleep.alarm.domain.model.SleepState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,9 +19,8 @@ class HealthServicesManager @Inject constructor(
     private val healthServicesClient by lazy { 
         try { HealthServices.getClient(context) } catch(e: Exception) { null }
     }
-    private val measureClient by lazy {
-        healthServicesClient?.measureClient
-    }
+    
+    private val passiveMonitoringClient by lazy { healthServicesClient?.passiveMonitoringClient }
 
     private val _heartRate = MutableStateFlow(0f)
     val heartRate: StateFlow<Float> = _heartRate
@@ -33,15 +31,18 @@ class HealthServicesManager @Inject constructor(
     private val _isTracking = MutableStateFlow(false)
     val isTracking: StateFlow<Boolean> = _isTracking
 
-    private val _isOnBody = MutableStateFlow(true) // نفترض الارتداء افتراضياً حتى يصل أول تحديث
+    private val _isOnBody = MutableStateFlow(false)
     val isOnBody: StateFlow<Boolean> = _isOnBody
+
+    private val _isSimulation = MutableStateFlow(false)
+    val isSimulation: StateFlow<Boolean> = _isSimulation
 
     fun setTracking(tracking: Boolean) {
         _isTracking.value = tracking
     }
 
-    suspend fun isSleepTrackingAvailable(): Boolean {
-        return true
+    fun setSimulation(active: Boolean) {
+        _isSimulation.value = active
     }
 
     fun startPassiveSleepMonitoring() {
@@ -69,5 +70,9 @@ class HealthServicesManager @Inject constructor(
 
     fun updateOnBodyStatus(onBody: Boolean) {
         _isOnBody.value = onBody
+    }
+
+    suspend fun isTrackingSupported(): Boolean {
+        return true
     }
 }

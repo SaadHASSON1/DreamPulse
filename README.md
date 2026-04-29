@@ -93,6 +93,38 @@ DreamPulse is built on the scientific fact that a single human sleep cycle lasts
 
 ---
 
+<div dir="rtl">
+
+## 🚀 رحلة التطور: من V1.0 إلى V2.0
+
+### 🕰️ النسخة الأولية (V1.0 - The Legacy)
+بدأت DreamPulse كفكرة بسيطة (MVP) لحل مشكلة "وقت الغفاء". كانت الواجهة تعتمد على مكونات Wear OS القياسية، مع تركيز كلي على الوظيفة البرمجية فقط دون جماليات بصرية متقدمة.
+
+### 🚀 النسخة الاحترافية (V2.0 - The Revolution)
+هذه النسخة هي إعادة ابتكار شاملة للتطبيق، حيث قمنا بـ:
+- **إعادة تصميم الواجهة**: الانتقال إلى نمط **Space Neumorphism** الفاخر مع خلفيات كونية متحركة.
+- **الأنيميشن السينمائي**: إضافة "صاروخ الاستيقاظ" المتحرك وشمس الصباح النابضة لإعطاء تجربة مستخدم حية.
+- **الموثوقية المطلقة**: ابتكار نظام **Fail-Safe Alarm** الذي يضمن الاستيقاظ حتى في أصعب الظروف التقنية.
+- **الإيماءات الذكية**: إضافة ميزة **Shake to Dismiss** للتفاعل الطبيعي مع الساعة.
+
+</div>
+
+---
+
+## 🚀 The Road to V2.0: A Cosmic Leap
+
+### 🕰️ V1.0 (The Legacy)
+DreamPulse started as a Minimum Viable Product (MVP) focusing purely on solving the "sleep latency" problem. The UI was functional but basic, using standard Wear OS components with minimal visual flair.
+
+### 🚀 V2.0 (The Revolution) - CURRENT
+This version marks a complete rebirth of the application:
+- **Visual Overhaul**: Transitioned to a premium **Space Neumorphism** design language with dynamic starry backgrounds.
+- **Cinematic Animations**: Introduced the animated "Blast-off Rocket" and "Pulsing Sun" for a living UI experience.
+- **Ultra-Reliability**: Developed the **Fail-Safe Alarm** system, ensuring the user wakes up even in edge-case sensor scenarios.
+- **Natural Interaction**: Implemented **Shake to Dismiss**, allowing for a more intuitive physical interaction.
+
+---
+
 ## 👨‍💻 Credits & Vision
 
 Developed with precision by **Saad HASSON**, founder of **X13LABS**.  

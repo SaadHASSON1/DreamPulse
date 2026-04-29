@@ -14,6 +14,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -112,6 +113,7 @@ class MainViewModel @Inject constructor(
         android.widget.Toast.makeText(context, "Simulating Sleep...", android.widget.Toast.LENGTH_SHORT).show()
         // تصفير الحالة أولاً ثم تحويلها لـ ASLEEP لضمان شعور النظام بالتغيير في كل مرة
         viewModelScope.launch {
+            healthServicesManager.setSimulation(true)
             healthServicesManager.updateSleepState(com.smartsleep.alarm.domain.model.SleepState.UNKNOWN)
             kotlinx.coroutines.delay(100) // تأخير بسيط جداً لضمان وصول التحديث الأول
             healthServicesManager.updateSleepState(com.smartsleep.alarm.domain.model.SleepState.ASLEEP)
@@ -125,7 +127,10 @@ class MainViewModel @Inject constructor(
     }
 
     fun updateMotion(magnitude: Float) {
-        _currentMotion.value = magnitude
+        // فلترة: لا تحدث الواجهة إلا إذا كان التغيير ملموساً (أكبر من 0.05)
+        if (Math.abs(_currentMotion.value - magnitude) > 0.05f) {
+            _currentMotion.value = magnitude
+        }
     }
 
     fun updateOnBodyStatus(isOnBody: Boolean) {
@@ -133,7 +138,10 @@ class MainViewModel @Inject constructor(
     }
 
     fun updateHeartRate(bpm: Float) {
-        _currentHeartRate.value = bpm
+        // فلترة: لا تحدث الواجهة لنبض القلب إلا إذا تغيرت القيمة الصحيحة
+        if (_currentHeartRate.value.toInt() != bpm.toInt()) {
+            _currentHeartRate.value = bpm
+        }
     }
 
     fun saveName(name: String) {

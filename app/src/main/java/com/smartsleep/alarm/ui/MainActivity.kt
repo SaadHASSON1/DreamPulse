@@ -7,6 +7,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
@@ -33,6 +34,9 @@ import com.smartsleep.alarm.ui.screens.MainScreen
 import com.smartsleep.alarm.ui.theme.SmartSleepTheme
 import com.smartsleep.alarm.ui.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.sqrt
 
 @AndroidEntryPoint
@@ -73,14 +77,18 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     override fun onResume() {
         super.onResume()
-        accelerometer?.let {
-            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-        }
-        offBodySensor?.let {
-            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
-        }
-        heartRateSensor?.let {
-            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        // تأخير بسيط لتجنب التقطيع عند فتح التطبيق
+        lifecycleScope.launch {
+            delay(500)
+            accelerometer?.let {
+                sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI)
+            }
+            offBodySensor?.let {
+                sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
+            heartRateSensor?.let {
+                sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI)
+            }
         }
     }
 
@@ -124,6 +132,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private fun checkPermissions() {
         val permissions = mutableListOf(
             Manifest.permission.BODY_SENSORS,
+            Manifest.permission.BODY_SENSORS_BACKGROUND,
             Manifest.permission.ACTIVITY_RECOGNITION
         )
 

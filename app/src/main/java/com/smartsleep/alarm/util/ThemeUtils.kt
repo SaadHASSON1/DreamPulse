@@ -44,14 +44,14 @@ object ThemeUtils {
     }
 
     private val phrases = listOf(
-        "Rise and shine!",
-        "Ready to conquer the day?",
-        "Good morning!",
-        "The world is waiting!",
-        "Success starts now!",
-        "Dream big, live bigger.",
-        "Make today count!",
-        "You've got this!"
+        "Rise and shine",
+        "Conquer the day",
+        "Good morning",
+        "World is waiting",
+        "Success starts now",
+        "Dream big",
+        "Make today count",
+        "You got this"
     )
 
     fun getRandomPhrase(name: String = ""): String {
