@@ -1,3 +1,8 @@
+/* 
+ * Copyright (C) 2026 Saad - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ * Proprietary and confidential
+ */
 package com.smartsleep.alarm.data.sensors
 
 import android.content.Context
