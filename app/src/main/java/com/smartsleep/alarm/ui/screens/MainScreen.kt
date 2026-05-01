@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,6 +77,7 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
     val sleepState by viewModel.currentSleepState.collectAsState()
     val currentHeartRate by viewModel.currentHeartRate.collectAsState()
     val isOnBody by viewModel.isOnBody.collectAsState()
+    val lastSleepSummary by viewModel.lastSleepSummary.collectAsState()
     
     // إدارة حالة الشاشة الحالية
     val currentScreen = remember { mutableStateOf(AppScreen.WELCOME) }
@@ -119,6 +122,7 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
                     )
                     AppScreen.SETUP -> SetupScreen(
                         durationMin = durationMin,
+                        lastSleepSummary = lastSleepSummary,
                         onDurationChange = { viewModel.setDuration(it) },
                         onStartTracking = { viewModel.startTracking() },
                         onBack = { currentScreen.value = AppScreen.WELCOME }
@@ -179,7 +183,6 @@ fun WelcomeScreen(onStart: () -> Unit) {
             modifier = Modifier.size(80.dp),
             contentAlignment = Alignment.Center
         ) {
-            // Stars Animation (remains same)
             repeat(8) { i ->
                 val startAngle = i * 45f
                 val currentAngle = (startAngle + angleState) % 360f
@@ -203,12 +206,11 @@ fun WelcomeScreen(onStart: () -> Unit) {
                 )
             }
 
-            // 1. اللوغو بحجم متناسق داخل مدار النجوم
             if (appIcon != null) {
                 Image(
                     bitmap = appIcon,
                     contentDescription = "Official Logo",
-                    modifier = Modifier.size(62.dp) // حجم مثالي ليكون داخل مدار النجوم
+                    modifier = Modifier.size(62.dp)
                 )
             }
         }
@@ -252,6 +254,7 @@ fun WelcomeScreen(onStart: () -> Unit) {
 @Composable
 fun SetupScreen(
     durationMin: Int,
+    lastSleepSummary: String,
     onDurationChange: (Int) -> Unit,
     onStartTracking: () -> Unit,
     onBack: () -> Unit
@@ -330,27 +333,22 @@ fun SetupScreen(
         Button(
             onClick = onStartTracking,
             modifier = Modifier
-                .fillMaxWidth(0.5f) // تقليل العرض للنصف ليكون نحيفاً جداً
+                .fillMaxWidth(0.5f)
                 .height(52.dp),
             colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF3F51B5)),
             shape = RoundedCornerShape(26.dp)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "START", 
-                    fontSize = 11.sp, 
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
-                    lineHeight = 12.sp
-                )
-                Text(
-                    text = "TRACKING", 
-                    fontSize = 11.sp, 
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
-                    lineHeight = 12.sp
-                )
+                Text(text = "START", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.SansSerif, lineHeight = 12.sp)
+                Text(text = "TRACKING", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.SansSerif, lineHeight = 12.sp)
             }
+        }
+
+        // تقرير آخر ليلة
+        if (lastSleepSummary != "No data available") {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "LAST SESSION:", fontSize = 8.sp, color = Color.LightGray.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
+            Text(text = lastSleepSummary, fontSize = 9.sp, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
         }
 
         Spacer(modifier = Modifier.weight(0.1f))

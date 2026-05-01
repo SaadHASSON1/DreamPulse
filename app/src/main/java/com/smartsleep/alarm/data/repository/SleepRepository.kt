@@ -40,6 +40,12 @@ class SleepRepository @Inject constructor(
         preferencesManager.saveUserName(name)
     }
 
+    val lastSleepSummary: Flow<String> = preferencesManager.lastSleepSummary
+
+    suspend fun saveSleepSummary(summary: String) {
+        preferencesManager.saveSleepSummary(summary)
+    }
+
     suspend fun isTrackingSupported(): Boolean {
         return healthServicesManager.isTrackingSupported()
     }

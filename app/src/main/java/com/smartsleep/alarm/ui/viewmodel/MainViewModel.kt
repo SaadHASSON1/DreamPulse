@@ -16,6 +16,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asSharedFlow
@@ -42,6 +44,9 @@ class MainViewModel @Inject constructor(
     private val _currentSleepState = MutableStateFlow(SleepState.UNKNOWN)
     val currentSleepState: StateFlow<SleepState> = _currentSleepState
     
+    val lastSleepSummary: StateFlow<String> = sleepRepository.lastSleepSummary
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "No data available")
+
     private val _currentMotion = MutableStateFlow(0f)
     val currentMotion: StateFlow<Float> = _currentMotion
 

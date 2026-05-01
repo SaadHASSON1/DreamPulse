@@ -72,4 +72,10 @@ class PreferencesManager @Inject constructor(
             preferences[LAST_SLEEP_SUMMARY_KEY] = summary
         }
     }
+
+    suspend fun saveSleepSummary(summary: String) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_SLEEP_SUMMARY_KEY] = summary
+        }
+    }
 }

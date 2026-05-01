@@ -131,14 +131,16 @@ class SleepMonitorService : Service(), SensorEventListener {
 
     private fun scheduleBackupAlarm() {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AlarmReceiver::class.java)
+        val intent = Intent(this, AlarmReceiver::class.java).apply {
+            action = "com.smartsleep.alarm.ACTION_ALARM"
+        }
         val pendingIntent = PendingIntent.getBroadcast(
             this, 1002, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        // منبه احتياطي بعد المدة المختارة + 30 دقيقة لضمان الاستيقاظ في أسوأ الظروف
-        val backupTime = System.currentTimeMillis() + sleepDurationMillis + (30 * 60 * 1000L)
+        // منبه احتياطي بعد المدة المختارة + 45 دقيقة لضمان الاستيقاظ في أسوأ الظروف
+        val backupTime = System.currentTimeMillis() + sleepDurationMillis + (45 * 60 * 1000L)
         alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, backupTime, pendingIntent)
-        Log.d("SleepMonitor", "Backup alarm set for safety.")
+        Log.d("SleepMonitor", "Security Backup alarm set.")
     }
 
     private fun startHeartRateDutyCycle() {
@@ -172,8 +174,14 @@ class SleepMonitorService : Service(), SensorEventListener {
     private fun observeHeartRate() {
         serviceScope.launch {
             healthServicesManager.heartRate.collectLatest { bpm ->
-                if (bpm > 0) {
+                if (bpm > 30) {
+                    hrWindow.add(bpm)
+                    if (hrWindow.size > 20) hrWindow.removeAt(0)
+                    
                     updateNotification("DreamPulse: Tracking active... [Pulse: ${bpm.toInt()} BPM]")
+                    
+                    // الربط الحيوي: استخدام بيانات خدمات الصحة الموثوقة لتأكيد النوم
+                    checkAdvancedHeuristic()
                 }
             }
         }
@@ -239,19 +247,22 @@ class SleepMonitorService : Service(), SensorEventListener {
         // 2. تحديث المنبه للوقت الفعلي بدقة (بناءً على اختيار المستخدم)
         val targetWakeTime = now + sleepDurationMillis
         
-        // في وضع المحاكاة أو الفترات القصيرة جداً، نتجاوز الـ 30 دقيقة الاحتياطية
-        if (isSimulation || sleepDurationMillis < 30 * 60 * 1000L) {
-            scheduleAlarmImmediate(targetWakeTime)
-        } else {
-            scheduleAlarm(targetWakeTime)
+        serviceScope.launch {
+            val timeStr = java.text.SimpleDateFormat("HH:mm").format(java.util.Date(targetWakeTime))
+            val confirmTimeStr = java.text.SimpleDateFormat("HH:mm").format(java.util.Date(now))
+            sleepRepository.saveSleepSummary("$confirmTimeStr, $timeStr")
+            updateNotification("SLEEP DETECTED! Alarm set for $timeStr")
+            
+            if (isSimulation || sleepDurationMillis < 30 * 60 * 1000L) {
+                scheduleAlarmImmediate(targetWakeTime)
+            } else {
+                scheduleAlarm(targetWakeTime)
+            }
         }
         
         serviceScope.launch(Dispatchers.Main) {
             val minutes = sleepDurationMillis / (1000 * 60)
             android.widget.Toast.makeText(this@SleepMonitorService, "Sleep Confirmed! Alarm in $minutes mins", android.widget.Toast.LENGTH_LONG).show()
-            
-            val timeStr = java.text.SimpleDateFormat("HH:mm").format(java.util.Date(targetWakeTime))
-            updateNotification("SLEEP DETECTED! Alarm set for $timeStr")
         }
     }
 
@@ -318,7 +329,9 @@ class SleepMonitorService : Service(), SensorEventListener {
     }
 
     private fun triggerAlarmNow() {
-        val intent = Intent(this, AlarmReceiver::class.java)
+        val intent = Intent(this, AlarmReceiver::class.java).apply {
+            action = "com.smartsleep.alarm.ACTION_ALARM"
+        }
         sendBroadcast(intent)
         stopSelf()
     }
@@ -329,7 +342,9 @@ class SleepMonitorService : Service(), SensorEventListener {
         
         Log.d("SleepMonitor", "Scheduling IMMEDIATE alarm for: ${java.util.Date(wakeUpTime)}")
 
-        val receiverIntent = Intent(this, AlarmReceiver::class.java)
+        val receiverIntent = Intent(this, AlarmReceiver::class.java).apply {
+            action = "com.smartsleep.alarm.ACTION_ALARM"
+        }
         val receiverPendingIntent = PendingIntent.getBroadcast(
             this, ALARM_REQUEST_CODE, receiverIntent, 
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -350,23 +365,30 @@ class SleepMonitorService : Service(), SensorEventListener {
     private fun scheduleAlarm(targetTime: Long) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         
-        // التأكد من أن وقت الاستيقاظ دائماً في المستقبل
+        // ضمان أن المنبه دائماً في المستقبل (دقيقتين كحد أدنى)
         val safeTargetTime = targetTime.coerceAtLeast(System.currentTimeMillis() + 2 * 60 * 1000L)
         wakeUpTime = safeTargetTime
         
-        Log.d("SleepMonitor", "Scheduling alarm for: ${java.util.Date(wakeUpTime)}")
+        Log.i("SleepMonitor", "⏰ MASTER ALARM set for: ${java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date(wakeUpTime))}")
 
-        val receiverIntent = Intent(this, AlarmReceiver::class.java)
+        val receiverIntent = Intent(this, AlarmReceiver::class.java).apply {
+            action = "com.smartsleep.alarm.ACTION_ALARM"
+        }
+        
         val receiverPendingIntent = PendingIntent.getBroadcast(
             this, ALARM_REQUEST_CODE, receiverIntent, 
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
         try {
+            // 1. للرؤية في النظام (أيقونة المنبه)
             val alarmClockInfo = AlarmManager.AlarmClockInfo(wakeUpTime, receiverPendingIntent)
             alarmManager.setAlarmClock(alarmClockInfo, receiverPendingIntent)
             
-            // تحديث النافذة الذكية: إلغاء التوقيت القديم وبدء توقيت جديد بناءً على الموعد الجديد
+            // 2. للاستيقاظ القسري من وضع الخمول (Idle/Doze)
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeUpTime, receiverPendingIntent)
+            
+            // تحديث النافذة الذكية
             smartWindowJob?.cancel()
             smartWindowJob = serviceScope.launch {
                 val delayTime = (wakeUpTime - System.currentTimeMillis() - 20 * 60 * 1000L).coerceAtLeast(0)
@@ -374,8 +396,9 @@ class SleepMonitorService : Service(), SensorEventListener {
                 isSmartWindowActive = true
                 updateNotification("DreamPulse: Smart window active.")
             }
+            Log.d("SleepMonitor", "Alarm secured successfully.")
         } catch (e: Exception) {
-            Log.e("SleepMonitor", "Failed to set alarm", e)
+            Log.e("SleepMonitor", "CRITICAL: Failed to set alarm", e)
         }
     }
 

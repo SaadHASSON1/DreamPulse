@@ -96,14 +96,20 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
             }
         }
 
-        setShowWhenLocked(true)
-        setTurnScreenOn(true)
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        
+        // أوامر اختراق القفل وإضاءة الشاشة (إصدارات قديمة وجديدة)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
             val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
             keyguardManager.requestDismissKeyguard(this, null)
+        } else {
+            window.addFlags(
+                android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
         }
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         setContent {
             androidx.activity.compose.BackHandler { }
@@ -347,10 +353,19 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
 
     private fun dismissAlarm() {
         stopAlarmOnly()
+        // إيقاف التتبع تلقائياً بمجرد الاستيقاظ (سواء بالهز أو بالزر)
+        val monitorServiceIntent = Intent(this, com.smartsleep.alarm.service.SleepMonitorService::class.java)
+        stopService(monitorServiceIntent)
+        sleepRepository.setTracking(false)
+        
         showSummary.value = true
         // اهتزاز خفيف لتأكيد استلام الأمر
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        vibrator.vibrate(100)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            vibrator.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            vibrator.vibrate(100)
+        }
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
