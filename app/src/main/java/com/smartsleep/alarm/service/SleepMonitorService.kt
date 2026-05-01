@@ -101,7 +101,7 @@ class SleepMonitorService : Service(), SensorEventListener {
 
         try {
             // اهتزاز خفيف لتأكيد استلام الأمر
-            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.VIBRator
+            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
             vibrator?.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
 
             setupSensors()

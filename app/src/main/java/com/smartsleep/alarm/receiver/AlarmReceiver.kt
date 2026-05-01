@@ -3,9 +3,6 @@ package com.smartsleep.alarm.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Vibrator
-import android.os.VibrationEffect
-import com.smartsleep.alarm.util.NotificationHelper
 
 import android.app.Notification
 import android.app.NotificationChannel
