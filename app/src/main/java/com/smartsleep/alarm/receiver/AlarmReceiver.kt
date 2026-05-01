@@ -6,8 +6,6 @@ import android.content.Intent
 import android.os.Vibrator
 import android.os.VibrationEffect
 import com.smartsleep.alarm.util.NotificationHelper
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -16,10 +14,7 @@ import android.app.PendingIntent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 
-@AndroidEntryPoint
 class AlarmReceiver : BroadcastReceiver() {
-
-    @Inject lateinit var notificationHelper: NotificationHelper
 
     override fun onReceive(context: Context, intent: Intent) {
         android.util.Log.d("AlarmReceiver", "🔥 MASTER ALARM TRIGGERED!")

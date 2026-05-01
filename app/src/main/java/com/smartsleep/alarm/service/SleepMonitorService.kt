@@ -58,7 +58,7 @@ class SleepMonitorService : Service(), SensorEventListener {
         super.onCreate()
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DreamPulse:SleepMonitor")
-        wakeLock?.acquire() // قفل المعالج لضمان عدم توقف الحساسات
+        wakeLock?.acquire(9 * 60 * 60 * 1000L) // 9-hour maximum timeout
         Log.d("SleepMonitor", "WakeLock acquired")
     }
 
@@ -101,7 +101,7 @@ class SleepMonitorService : Service(), SensorEventListener {
 
         try {
             // اهتزاز خفيف لتأكيد استلام الأمر
-            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.VIBRator
             vibrator?.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
 
             setupSensors()
@@ -119,28 +119,12 @@ class SleepMonitorService : Service(), SensorEventListener {
             startHeartRateDutyCycle() 
             healthServicesManager.startPassiveSleepMonitoring()
             
-            scheduleBackupAlarm()
-            
             android.widget.Toast.makeText(this, "DreamPulse: Tracking Active! 🚀", android.widget.Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e("SleepMonitor", "Start failed", e)
         }
 
         return START_STICKY
-    }
-
-    private fun scheduleBackupAlarm() {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, AlarmReceiver::class.java).apply {
-            action = "com.smartsleep.alarm.ACTION_ALARM"
-        }
-        val pendingIntent = PendingIntent.getBroadcast(
-            this, 1002, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        // منبه احتياطي بعد المدة المختارة + 45 دقيقة لضمان الاستيقاظ في أسوأ الظروف
-        val backupTime = System.currentTimeMillis() + sleepDurationMillis + (45 * 60 * 1000L)
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, backupTime, pendingIntent)
-        Log.d("SleepMonitor", "Security Backup alarm set.")
     }
 
     private fun startHeartRateDutyCycle() {
@@ -258,6 +242,19 @@ class SleepMonitorService : Service(), SensorEventListener {
             } else {
                 scheduleAlarm(targetWakeTime)
             }
+
+            // Backup alarm: fires 30 minutes after the real alarm as a safety net
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val backupIntent = Intent(this@SleepMonitorService, AlarmReceiver::class.java).apply {
+                action = "com.smartsleep.alarm.ACTION_ALARM"
+            }
+            val backupPendingIntent = PendingIntent.getBroadcast(
+                this@SleepMonitorService, 1002, backupIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            val backupTime = targetWakeTime + (30 * 60 * 1000L)
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, backupTime, backupPendingIntent)
+            Log.d("SleepMonitor", "Backup alarm set for 30 min after real alarm.")
         }
         
         serviceScope.launch(Dispatchers.Main) {
@@ -384,9 +381,6 @@ class SleepMonitorService : Service(), SensorEventListener {
             // 1. للرؤية في النظام (أيقونة المنبه)
             val alarmClockInfo = AlarmManager.AlarmClockInfo(wakeUpTime, receiverPendingIntent)
             alarmManager.setAlarmClock(alarmClockInfo, receiverPendingIntent)
-            
-            // 2. للاستيقاظ القسري من وضع الخمول (Idle/Doze)
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, wakeUpTime, receiverPendingIntent)
             
             // تحديث النافذة الذكية
             smartWindowJob?.cancel()

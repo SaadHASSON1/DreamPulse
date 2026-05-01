@@ -100,7 +100,6 @@ class MainViewModel @Inject constructor(
         
         viewModelScope.launch {
             _permissionRequestEvent.emit(Unit)
-            sleepRepository.saveSleepStartTime(System.currentTimeMillis())
         }
         
         android.widget.Toast.makeText(context, "Starting Service...", android.widget.Toast.LENGTH_SHORT).show()
