@@ -2,17 +2,12 @@ package com.smartsleep.alarm.ui
 
 import android.content.Context
 import android.content.Intent
-import android.media.Ringtone
-import android.media.RingtoneManager
 import android.os.Bundle
 import android.os.Vibrator
-import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,11 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -41,30 +32,11 @@ import com.smartsleep.alarm.util.ThemeUtils
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import kotlin.math.sqrt
-
-@Composable
-fun StarryBackground() {
-    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
-        val random = java.util.Random(42) // Stable seed
-        repeat(100) {
-            val x = random.nextFloat() * size.width
-            val y = random.nextFloat() * size.height
-            val alpha = random.nextFloat() * 0.4f + 0.1f
-            val radius = random.nextFloat() * 1.2f
-            drawCircle(
-                color = Color.White.copy(alpha = alpha),
-                radius = radius,
-                center = androidx.compose.ui.geometry.Offset(x, y)
-            )
-        }
-    }
-}
 
 @AndroidEntryPoint
 class AlarmActivity : ComponentActivity(), SensorEventListener {
@@ -80,6 +52,25 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Handle intent action for summary
+        if (intent?.getStringExtra("action") == "show_summary") {
+            showSummary.value = true
+        }
+
+        // Screen On Logic
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+                android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
+        }
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         sensorManager?.registerListener(this, accel, SensorManager.SENSOR_DELAY_UI)
@@ -96,25 +87,8 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
             }
         }
 
-        // أوامر اختراق القفل وإضاءة الشاشة (إصدارات قديمة وجديدة)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-            keyguardManager.requestDismissKeyguard(this, null)
-        } else {
-            window.addFlags(
-                android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-                android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
-        }
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
         setContent {
             androidx.activity.compose.BackHandler { }
-
-            val infiniteTransition = rememberInfiniteTransition()
             val userName = userNameState.value
             val motivationPhrase = remember(userName) { ThemeUtils.getRandomPhrase(userName) }
             
@@ -123,15 +97,13 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
                     modifier = Modifier.fillMaxSize().background(Color.Black),
                     contentAlignment = Alignment.Center
                 ) {
-                    StarryBackground()
-                    
                     if (!showSummary.value) {
                         // --- ALARM SCREEN ---
                         Column(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Spacer(modifier = Modifier.weight(0.15f)) // رفع بسيط للأعلى
+                            Spacer(modifier = Modifier.weight(0.15f))
 
                             val sunTransition = rememberInfiniteTransition()
                             val sunPulse by sunTransition.animateFloat(
@@ -158,68 +130,41 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
                                 )
                             }
 
-                            Spacer(modifier = Modifier.weight(0.08f)) // مسافة أكبر قليلاً للراحة البصرية
+                            Spacer(modifier = Modifier.weight(0.1f))
 
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "WAKE UP",
-                                    fontSize = 24.sp, // تكبير بسيط للعنوان لزيادة الهيبة
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontFamily = FontFamily.SansSerif,
-                                    color = Color(0xFFFF8A80),
-                                    letterSpacing = 1.5.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Good morning, $userName",
-                                    fontSize = 12.sp,
-                                    fontFamily = FontFamily.SansSerif,
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    textAlign = TextAlign.Center
-                                )
+                            Text(
+                                text = "WAKE UP",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFFFF8A80),
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Text(
+                                text = "Good morning, $userName",
+                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.7f),
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.weight(0.1f))
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.8f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(22.dp))
+                                    .background(Color(0xFFB71C1C))
+                                    .combinedClickable(
+                                        onClick = { },
+                                        onLongClick = { dismissAlarm() }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("HOLD TO DISMISS", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
                             }
 
-                            Spacer(modifier = Modifier.weight(0.10f))
-
-                            // تجميع الزر والتلميح لزيادة التناسق
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.7f) // أعرض قليلاً لمظهر أكثر ثباتاً
-                                        .height(42.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFB71C1C).copy(alpha = 0.9f))
-                                        .combinedClickable(
-                                            onClick = { 
-                                                android.widget.Toast.makeText(this@AlarmActivity, "HOLD TO DISMISS", android.widget.Toast.LENGTH_SHORT).show()
-                                            },
-                                            onLongClick = {
-                                                dismissAlarm()
-                                            }
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "HOLD TO DISMISS", 
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 10.sp,
-                                        fontFamily = FontFamily.SansSerif
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-                                
-                                Text(
-                                    text = "OR SHAKE TO DISMISS",
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Bold, // خط أسمك قليلاً للوضوح
-                                    color = Color.White.copy(alpha = 0.3f), // شفافية أكثر ليكون "ثانوياً"
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.weight(0.18f)) // مسافة أمان سفلية لرفع كل شيء
+                            Spacer(modifier = Modifier.weight(0.2f))
                         }
                     } else {
                         // --- SUMMARY SCREEN ---
@@ -229,121 +174,40 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
                         val hours = durationMs / (3600 * 1000)
                         val minutes = (durationMs % (3600 * 1000)) / 60000
 
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            // 1. Rocket Background Layer
-                            val rocketTransition = rememberInfiniteTransition()
-                            val rocketOffset by rocketTransition.animateFloat(
-                                initialValue = 500f,
-                                targetValue = 500f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = keyframes {
-                                        durationMillis = 4500
-                                        500f at 0
-                                        -130f at 1000 with LinearOutSlowInEasing
-                                        -130f at 2800
-                                        -450f at 3600 with FastOutLinearInEasing
-                                        -450f at 4500
-                                    }
-                                )
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Spacer(modifier = Modifier.weight(0.15f))
+                            
+                            Text(
+                                text = motivationPhrase.uppercase(),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF90CAF9),
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            Text(
+                                text = "SLEPT: ${hours}h ${minutes}m",
+                                fontSize = 14.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
                             )
 
-                            val rocketAlpha by rocketTransition.animateFloat(
-                                initialValue = 0f,
-                                targetValue = 1f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = keyframes {
-                                        durationMillis = 4500
-                                        0f at 0
-                                        1f at 500
-                                        1f at 3200 
-                                        0f at 3500
-                                        0f at 4500
-                                    }
-                                )
-                            )
+                            Spacer(modifier = Modifier.weight(0.15f))
 
-                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                Image(
-                                    painter = painterResource(id = com.smartsleep.alarm.R.drawable.ic_neon_rocket),
-                                    contentDescription = "Rocket",
-                                    modifier = Modifier
-                                        .size(60.dp)
-                                        .graphicsLayer {
-                                            translationY = rocketOffset
-                                            alpha = rocketAlpha
-                                        }
-                                        .clip(CircleShape),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-
-                            // 2. Foreground Elements
-                            Column(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                            Button(
+                                onClick = { stopAlarmAndFinish() },
+                                modifier = Modifier.fillMaxWidth(0.8f).height(40.dp),
+                                colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF3F51B5))
                             ) {
-                                Spacer(modifier = Modifier.weight(0.10f))
-                                Box(modifier = Modifier.size(80.dp))
-                                Spacer(modifier = Modifier.weight(0.05f))
-
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        text = motivationPhrase.uppercase(),
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontFamily = FontFamily.SansSerif,
-                                        color = Color(0xFFE3F2FD),
-                                        textAlign = TextAlign.Center,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                        lineHeight = 18.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text(
-                                            text = "SLEEP DURATION: ",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            fontFamily = FontFamily.SansSerif,
-                                            color = Color.White.copy(alpha = 0.5f)
-                                        )
-                                        Text(
-                                            text = "${hours}h ${minutes}m",
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontFamily = FontFamily.SansSerif,
-                                            color = Color(0xFF90CAF9)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.weight(0.12f))
-
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.65f)
-                                        .height(44.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF3F51B5))
-                                        .combinedClickable(
-                                            onClick = { stopAlarmAndFinish() }
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "START MY DAY", 
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp,
-                                        fontFamily = FontFamily.SansSerif
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.weight(0.25f))
+                                Text("START MY DAY", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                             }
+
+                            Spacer(modifier = Modifier.weight(0.2f))
                         }
                     }
                 }
@@ -353,29 +217,16 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
 
     private fun dismissAlarm() {
         stopAlarmOnly()
-        // إيقاف التتبع تلقائياً بمجرد الاستيقاظ (سواء بالهز أو بالزر)
         val monitorServiceIntent = Intent(this, com.smartsleep.alarm.service.SleepMonitorService::class.java)
         stopService(monitorServiceIntent)
         sleepRepository.setTracking(false)
-        
         showSummary.value = true
-        // اهتزاز خفيف لتأكيد استلام الأمر
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            vibrator.vibrate(android.os.VibrationEffect.createOneShot(100, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
-        } else {
-            vibrator.vibrate(100)
-        }
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER && !showSummary.value) {
-            val x = event.values[0]
-            val y = event.values[1]
-            val z = event.values[2]
-            
-            val acceleration = sqrt(x * x + y * y + z * z) - 9.81f
-            if (acceleration > 12f) { // عتبة الهزة القوية
+            val acceleration = sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1] + event.values[2] * event.values[2]) - 9.81f
+            if (acceleration > 15f) {
                 dismissAlarm()
             }
         }

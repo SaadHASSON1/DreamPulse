@@ -57,17 +57,17 @@ class NotificationHelper @Inject constructor(
             addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         val fullScreenPendingIntent = android.app.PendingIntent.getActivity(
-            context, System.currentTimeMillis().toInt(), activityIntent, 
+            context, 1001, activityIntent, 
             android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
         )
 
-        // زر الإيقاف داخل الإشعار
+        // Stop button inside notification
         val stopIntent = android.content.Intent(context, com.smartsleep.alarm.ui.AlarmActivity::class.java).apply {
-            putExtra("action", "show_summary") // توحيد الأمر مع ما تتوقعه الشاشة
+            putExtra("action", "show_summary")
             addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
         val stopPendingIntent = android.app.PendingIntent.getActivity(
-            context, System.currentTimeMillis().toInt() + 1, stopIntent, 
+            context, 1002, stopIntent, 
             android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -80,12 +80,14 @@ class NotificationHelper @Inject constructor(
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "STOP", stopPendingIntent)
             .setOngoing(true)
+            .setAutoCancel(false)
+            .setSilent(false)
             .build()
     }
 
     companion object {
         const val TRACKING_CHANNEL_ID = "tracking_channel"
-        const val ALARM_CHANNEL_ID = "alarm_channel_v3" // تحديث القناة لضمان تطبيق الإعدادات الجديدة
+        const val ALARM_CHANNEL_ID = "alarm_channel_v4" // Incremented version to ensure importance is applied
         const val NOTIFICATION_ID = 1001
     }
 }

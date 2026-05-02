@@ -85,6 +85,15 @@ class MainViewModel @Inject constructor(
                 _userName.value = it
             }
         }
+        // Link Repository Heart Rate to ViewModel State
+        // This ensures the tracking screen shows live data from HealthServices during sleep monitoring
+        viewModelScope.launch {
+            sleepRepository.heartRate.collectLatest { bpm ->
+                if (bpm > 0) {
+                    _currentHeartRate.value = bpm
+                }
+            }
+        }
     }
 
     fun setDuration(minutes: Int) {

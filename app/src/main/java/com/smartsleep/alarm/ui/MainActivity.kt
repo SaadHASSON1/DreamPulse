@@ -73,8 +73,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         offBodySensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)
         heartRateSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_HEART_RATE)
         
-        // لا نطلب الصلاحيات هنا لضمان هدوء التطبيق عند الفتح
-        
         setContent {
             SmartSleepTheme {
                 MainScreen(viewModel)
@@ -112,10 +110,19 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        // إذا كان التتبع فعالاً، نترك المهمة للخدمة لكي لا يحدث تضارب في العتاد
+        val sensorType = event?.sensor?.type
+        
+        // Allow Off-Body detection even during tracking to keep the "Active" status live
+        if (sensorType == Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT) {
+            val isOnBody = event.values[0] == 1.0f
+            viewModel.updateOnBodyStatus(isOnBody)
+            return
+        }
+
+        // For Heart Rate and Motion, we let the Service handle them during tracking to avoid hardware conflicts
         if (viewModel.isTracking.value) return
         
-        when (event?.sensor?.type) {
+        when (sensorType) {
             Sensor.TYPE_ACCELEROMETER -> {
                 val x = event.values[0]
                 val y = event.values[1]
@@ -129,11 +136,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 } else {
                     viewModel.updateMotion(0f)
                 }
-            }
-            Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT -> {
-                // القيمة 1 تعني الارتداء، 0 تعني خلع الساعة
-                val isOnBody = event.values[0] == 1.0f
-                viewModel.updateOnBodyStatus(isOnBody)
             }
             Sensor.TYPE_HEART_RATE -> {
                 val bpm = event.values[0]
@@ -175,7 +177,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             Log.d("MainActivity", "Requesting primary permissions: $missingPrimary")
             requestPermissionLauncher.launch(missingPrimary.toTypedArray())
         } else {
-            // إذا كانت الصلاحيات الأساسية موجودة، نطلب صلاحية الخلفية
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q &&
                 androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.BODY_SENSORS_BACKGROUND) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 Log.d("MainActivity", "Requesting Background Sensors permission")
@@ -184,7 +185,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             }
         }
 
-        // طلب استثناء من تحسين البطارية (تأمين ضد الانهيار)
         try {
             val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
             if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
@@ -196,7 +196,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             }
         } catch (e: Exception) {
             Log.e("MainActivity", "Battery optimization request failed", e)
-            // محاولة فتح الإعدادات العامة كخيار بديل آمن
             try {
                 val intent = android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 startActivity(intent)
@@ -205,7 +204,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             }
         }
 
-        // تحقق من صلاحية المنبهات الدقيقة
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             val alarmManager = getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
             if (!alarmManager.canScheduleExactAlarms()) {
