@@ -55,7 +55,6 @@ class HealthServicesManager @Inject constructor(
     private val measureClient by lazy { healthServicesClient?.measureClient }
 
     fun startPassiveSleepMonitoring() {
-        resetStates() // تصفير كل شيء قبل البدء لضمان عدم حدوث إنذار كاذب
         val config = PassiveListenerConfig.builder()
             .setShouldUserActivityInfoBeRequested(true)
             .setDataTypes(setOf(androidx.health.services.client.data.DataType.HEART_RATE_BPM))

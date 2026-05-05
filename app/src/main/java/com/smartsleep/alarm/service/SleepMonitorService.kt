@@ -51,6 +51,7 @@ class SleepMonitorService : Service(), SensorEventListener {
     private var isSleepConfirmed = false
     private var motionSilenceCount = 0
     private var motionEvents = mutableListOf<Long>()
+    private var isInitialized = false
     
     // Flag to distinguish system kill from user stop
     private var stoppedByUser = false
@@ -119,9 +120,6 @@ class SleepMonitorService : Service(), SensorEventListener {
                 
                 if (savedConfirmed) {
                     scheduleAlarmsInternal(targetWakeTime)
-                } else {
-                    // Still waiting for sleep detection. Keep the old start time but don't reset states.
-                    // Only start sensors if they aren't already running.
                 }
             } else {
                 // Fresh start from UI
@@ -130,29 +128,29 @@ class SleepMonitorService : Service(), SensorEventListener {
                 preferencesManager.saveServiceStartTime(serviceStartTime)
                 preferencesManager.saveSleepConfirmed(false)
                 healthServicesManager.resetStates()
+                lastMotionTime = System.currentTimeMillis()
             }
             
-            lastMotionTime = System.currentTimeMillis()
-
-            try {
-                setupSensors()
-                observeSleepState()
-                observeHeartRate()
-                
-                if (!isSleepConfirmed) {
-                    delay(500)
-                    healthServicesManager.startHeartRateMeasurement()
+            if (!isInitialized) {
+                isInitialized = true
+                try {
+                    if (!isSleepConfirmed) {
+                        setupSensors()
+                        observeSleepState()
+                        observeHeartRate()
+                        delay(500)
+                        healthServicesManager.startHeartRateMeasurement()
+                        startHeartRateDutyCycle() 
+                        healthServicesManager.startPassiveSleepMonitoring()
+                        startInternalHeuristicLoop()
+                    }
+                    
+                    launch(Dispatchers.Main) {
+                        android.widget.Toast.makeText(this@SleepMonitorService, "Sleep Tracking Active!", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e("SleepMonitor", "Start failed", e)
                 }
-                
-                startHeartRateDutyCycle() 
-                healthServicesManager.startPassiveSleepMonitoring()
-                startInternalHeuristicLoop()
-                
-                launch(Dispatchers.Main) {
-                    android.widget.Toast.makeText(this@SleepMonitorService, "Sleep Tracking Active!", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                Log.e("SleepMonitor", "Start failed", e)
             }
         }
 
@@ -283,7 +281,7 @@ class SleepMonitorService : Service(), SensorEventListener {
             val magnitude = sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1] + event.values[2] * event.values[2]) - 9.81f
             val absMag = if (magnitude < 0) -magnitude else magnitude
             
-            if (absMag > 0.08f) { 
+            if (absMag > 0.4f) { 
                 val now = System.currentTimeMillis()
                 motionEvents.add(now)
                 motionEvents.removeAll { now - it > 4000 } // Keep last 4 seconds
