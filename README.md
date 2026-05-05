@@ -71,7 +71,7 @@ We solved this worldwide frustration. Using advanced biometric sensors, **the al
 - **📳 Shake to Stop**: Stop the alarm with a natural wrist motion.
 - **🌌 Cosmic Aesthetics**: Realistic celestial bodies and starry dynamic backgrounds.
 
-### 🚀 The Road to V2.0: A Cosmic Leap
+### 🚀 The Road of Revolution: A Cosmic Leap
 
 #### 🕰️ V1.0 (The Legacy)
 DreamPulse started as a Minimum Viable Product (MVP) focusing purely on solving the "sleep latency" problem. The UI was functional but basic, using standard Wear OS components with minimal visual flair.
