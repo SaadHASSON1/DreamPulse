@@ -77,12 +77,10 @@ class HealthServicesManager @Inject constructor(
         _isOnBody.value = false
     }
 
-    private val exerciseClient = healthServicesClient?.exerciseClient
+
     private var hrCallback: androidx.health.services.client.MeasureCallback? = null
 
     fun startHeartRateMeasurement(forceRestart: Boolean = false) {
-        // نبدأ أيضاً جلسة تمرين وهمية لضمان بقاء الحساس مشتعلاً في ساعات سامسونج الحديثة
-        startShadowExercise()
         
         try {
             if (!forceRestart && hrCallback != null) return // إذا كان يعمل بالفعل، اتركه وشأنه
@@ -129,14 +127,23 @@ class HealthServicesManager @Inject constructor(
             )
             hrCallback = null
         }
-        stopShadowExercise()
     }
 
     fun stopPassiveSleepMonitoring() {
         passiveMonitoringClient?.clearPassiveListenerServiceAsync()
         stopHeartRateMeasurement()
-        stopShadowExercise()
-        _isTracking.value = false
+        // NOTE: Do NOT set _isTracking = false here!
+        // Tracking state is managed exclusively by setTracking() calls.
+        // This method is called during confirmSleep() where tracking must remain true.
+    }
+
+    fun unregisterAll() {
+        try {
+            passiveMonitoringClient?.clearPassiveListenerServiceAsync()
+        } catch (e: Exception) {}
+        try {
+            stopHeartRateMeasurement()
+        } catch (e: Exception) {}
     }
 
     fun updateHeartRate(bpm: Float) {
@@ -151,30 +158,6 @@ class HealthServicesManager @Inject constructor(
         _isOnBody.value = onBody
     }
 
-    private fun startShadowExercise() {
-        if (exerciseClient == null) return
-        val config = androidx.health.services.client.data.ExerciseConfig.builder(
-            androidx.health.services.client.data.ExerciseType.WALKING
-        ).setDataTypes(setOf(androidx.health.services.client.data.DataType.HEART_RATE_BPM))
-        .setIsAutoPauseAndResumeEnabled(false)
-        .setIsGpsEnabled(false)
-        .build()
-        try {
-            exerciseClient.startExerciseAsync(config)
-            Log.i("HealthServices", "Shadow Exercise started")
-        } catch (e: Exception) {
-            Log.e("HealthServices", "Shadow Exercise error", e)
-        }
-    }
-
-    private fun stopShadowExercise() {
-        try {
-            exerciseClient?.endExerciseAsync()
-            Log.i("HealthServices", "Shadow Exercise stopped")
-        } catch (e: Exception) {
-            Log.e("HealthServices", "Shadow Exercise stop error", e)
-        }
-    }
 
     suspend fun isTrackingSupported(): Boolean {
         val capabilities = passiveMonitoringClient?.getCapabilitiesAsync()?.await()

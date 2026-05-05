@@ -2,8 +2,6 @@ package com.smartsleep.alarm.ui.screens
 
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.os.BatteryManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.compose.animation.*
@@ -11,21 +9,18 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -35,104 +30,72 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import com.smartsleep.alarm.domain.model.SleepState
 import com.smartsleep.alarm.ui.viewmodel.MainViewModel
 
 @Composable
 fun StarryBackground(modifier: Modifier = Modifier) {
+    // Cache star positions — computed once, drawn every frame without recalculation
     val stars = remember {
         val random = java.util.Random(42)
-        List(60) { // تقليل العدد قليلاً لضمان سلاسة فائقة
-            Triple(random.nextFloat(), random.nextFloat(), random.nextFloat() * 0.3f + 0.1f)
+        List(60) {
+            Triple(
+                random.nextFloat(), // x ratio
+                random.nextFloat(), // y ratio
+                random.nextFloat() * 0.3f + 0.1f // alpha
+            )
         }
     }
-
     Box(
         modifier = modifier
             .fillMaxSize()
+            .graphicsLayer(alpha = 0.99f)
             .drawBehind {
-                stars.forEach { (x, y, alpha) ->
+                stars.forEach { (xRatio, yRatio, alpha) ->
                     drawCircle(
                         color = Color.White.copy(alpha = alpha),
                         radius = 1.1f,
-                        center = androidx.compose.ui.geometry.Offset(x * size.width, y * size.height)
+                        center = androidx.compose.ui.geometry.Offset(
+                            xRatio * size.width,
+                            yRatio * size.height
+                        )
                     )
                 }
             }
     )
 }
 
-enum class AppScreen {
-    WELCOME, SETUP, TRACKING
-}
-
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
+    // Optimization: Collect states at the top level
     val isTracking by viewModel.isTrackingState.collectAsState()
-    val durationMin by viewModel.sleepDurationMinutes.collectAsState()
-    val sleepState by viewModel.currentSleepState.collectAsState()
-    val currentHeartRate by viewModel.currentHeartRate.collectAsState()
-    val isOnBody by viewModel.isOnBody.collectAsState()
-    val lastSleepSummary by viewModel.lastSleepSummary.collectAsState()
     
-    // إدارة حالة الشاشة الحالية
-    val currentScreen = remember { mutableStateOf(AppScreen.WELCOME) }
-
-    // مزامنة الشاشة مع حالة التتبع الفعلية (بقفل أمان)
-    LaunchedEffect(isTracking) {
-        if (isTracking) {
-            currentScreen.value = AppScreen.TRACKING
-        } else {
-            // نعود لصفحة الإعدادات فقط إذا كنا في صفحة المراقبة وانتهى التتبع
-            if (currentScreen.value == AppScreen.TRACKING) {
-                currentScreen.value = AppScreen.SETUP
-            }
-        }
-    }
+    // We only trigger recomposition of the Crossfade when showWelcome or isTracking changes
+    var showWelcome by remember { mutableStateOf(true) }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        // الخلفية مرسومة مرة واحدة ومخزنة في الكاش لضمان 60 هرتز
         StarryBackground()
         
-        AnimatedContent(
-            targetState = currentScreen.value,
-            transitionSpec = {
-                // تأثير Morph راقي (تلاشي مع تكبير و تصغير)
-                if (targetState.ordinal > initialState.ordinal) {
-                    (scaleIn(animationSpec = tween(400, easing = FastOutSlowInEasing), initialScale = 0.9f) + fadeIn(animationSpec = tween(400))) with
-                            (scaleOut(animationSpec = tween(400, easing = FastOutSlowInEasing), targetScale = 1.1f) + fadeOut(animationSpec = tween(400)))
-                } else {
-                    (scaleIn(animationSpec = tween(400, easing = FastOutSlowInEasing), initialScale = 1.1f) + fadeIn(animationSpec = tween(400))) with
-                            (scaleOut(animationSpec = tween(400, easing = FastOutSlowInEasing), targetScale = 0.9f) + fadeOut(animationSpec = tween(400)))
-                }
-            },
-            label = "MorphTransition"
-        ) { screen ->
+        Crossfade(
+            targetState = if (showWelcome) "welcome" else if (isTracking) "tracking" else "setup",
+            animationSpec = tween(500, easing = LinearEasing),
+            label = "MainScreenTransition"
+        ) { state ->
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                when (screen) {
-                    AppScreen.WELCOME -> WelcomeScreen(
-                        onStart = { currentScreen.value = AppScreen.SETUP }
+                when (state) {
+                    "welcome" -> WelcomeScreen(
+                        onStart = { showWelcome = false }
                     )
-                    AppScreen.SETUP -> SetupScreen(
-                        durationMin = durationMin,
-                        lastSleepSummary = lastSleepSummary,
-                        onDurationChange = { viewModel.setDuration(it) },
-                        onStartTracking = { viewModel.startTracking() },
-                        onBack = { currentScreen.value = AppScreen.WELCOME }
+                    "setup" -> SetupScreen(
+                        viewModel = viewModel,
+                        onBack = { showWelcome = true }
                     )
-                    AppScreen.TRACKING -> MonitoringScreen(
-                        sleepState = sleepState,
-                        heartRate = currentHeartRate,
-                        isOnBody = isOnBody,
-                        onStop = { viewModel.stopTracking() },
-                        onSimulate = { viewModel.simulateSleep() }
+                    "tracking" -> MonitoringScreen(
+                        viewModel = viewModel
                     )
                 }
             }
@@ -143,18 +106,15 @@ fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
 @Composable
 fun WelcomeScreen(onStart: () -> Unit) {
     val infiniteTransition = rememberInfiniteTransition()
-    
-    // أنيميشن الدوران العام لمدارات النجوم
     val angleState by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = LinearEasing),
+            animation = tween(15000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         )
     )
 
-    // تحميل اللوغو بطريقة برمجية آمنة جداً لمنع الانهيار
     val context = LocalContext.current
     val appIcon = remember {
         try {
@@ -178,23 +138,25 @@ fun WelcomeScreen(onStart: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceEvenly
     ) {
-        // Orbital Stars + Logo
         Box(
             modifier = Modifier.size(80.dp),
             contentAlignment = Alignment.Center
         ) {
+            // Single shared pulse animation instead of 8 separate ones
+            val pulse by infiniteTransition.animateFloat(
+                initialValue = 0.4f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2500, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                )
+            )
             repeat(8) { i ->
                 val startAngle = i * 45f
                 val currentAngle = (startAngle + angleState) % 360f
                 val rad = Math.toRadians(currentAngle.toDouble())
-                val pulse by infiniteTransition.animateFloat(
-                    initialValue = 0.4f,
-                    targetValue = 1f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(1000 + (i * 200), easing = FastOutSlowInEasing),
-                        repeatMode = RepeatMode.Reverse
-                    )
-                )
+                // Stagger the pulse per dot using a phase offset
+                val dotAlpha = (pulse + i * 0.08f).coerceIn(0.2f, 1f)
                 val x = (Math.cos(rad) * 36).dp
                 val y = (Math.sin(rad) * 36).dp
                 Box(
@@ -202,14 +164,14 @@ fun WelcomeScreen(onStart: () -> Unit) {
                         .offset(x, y)
                         .size(if (i % 2 == 0) 3.5.dp else 2.5.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = pulse))
+                        .background(Color.White.copy(alpha = dotAlpha))
                 )
             }
 
             if (appIcon != null) {
                 Image(
-                    bitmap = appIcon,
-                    contentDescription = "Official Logo",
+                    bitmap = appIcon!!,
+                    contentDescription = "Logo",
                     modifier = Modifier.size(62.dp)
                 )
             }
@@ -220,15 +182,13 @@ fun WelcomeScreen(onStart: () -> Unit) {
                 text = "DreamPulse",
                 style = MaterialTheme.typography.title3,
                 color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.SansSerif
+                fontWeight = FontWeight.Bold
             )
             Text(
                 text = "Sleep Smarter",
                 style = MaterialTheme.typography.caption1,
                 color = Color(0xFF90CAF9),
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.SansSerif
+                fontWeight = FontWeight.Bold
             )
         }
 
@@ -237,133 +197,170 @@ fun WelcomeScreen(onStart: () -> Unit) {
             modifier = Modifier.fillMaxWidth(0.65f).height(38.dp),
             colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF3F51B5))
         ) {
-            Text("START", fontWeight = FontWeight.Bold, fontSize = 13.sp, fontFamily = FontFamily.SansSerif)
+            Text("START", fontWeight = FontWeight.Bold, fontSize = 13.sp)
         }
 
         Text(
             text = "by Saad HASSON (X13LABS)",
             style = MaterialTheme.typography.caption2,
             color = Color(0xFF90CAF9).copy(alpha = 0.6f),
-            fontSize = 8.sp,
-            fontFamily = FontFamily.SansSerif,
-            modifier = Modifier.padding(bottom = 2.dp)
+            fontSize = 8.sp
         )
     }
 }
 
 @Composable
 fun SetupScreen(
-    durationMin: Int,
-    lastSleepSummary: String,
-    onDurationChange: (Int) -> Unit,
-    onStartTracking: () -> Unit,
+    viewModel: MainViewModel,
     onBack: () -> Unit
 ) {
-    // تفعيل الرجوع للخلف عند ضغط زر الرجوع في الساعة
     androidx.activity.compose.BackHandler(onBack = onBack)
+    val durationMin by viewModel.sleepDurationMinutes.collectAsState()
+    val lastSleepSummary by viewModel.lastSleepSummary.collectAsState()
+    val deadlineEnabled by viewModel.hardDeadlineEnabled.collectAsState()
+    val deadlineMinutes by viewModel.hardDeadlineMinutes.collectAsState()
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(12.dp),
+        modifier = Modifier.fillMaxSize().padding(10.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // موازنة دقيقة ليكون الوقت في المركز الهندسي
-        Spacer(modifier = Modifier.weight(0.2f))
+        Spacer(modifier = Modifier.weight(0.14f))
         
         Text(
             text = "WAKE ME UP IN",
             style = MaterialTheme.typography.caption1,
             color = Color(0xFF90CAF9),
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.SansSerif
+            fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.weight(0.1f))
+        Spacer(modifier = Modifier.weight(0.07f))
 
-        // 2. لوحة التحكم المتطورة (توزيع واسع و متناسق)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp) // تقريب الأزرار من الحواف بأمان
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)
         ) {
-            // الجناح الأيسر
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                SmallBtn("-30") { onDurationChange((durationMin - 30).coerceAtLeast(1)) }
-                Spacer(modifier = Modifier.height(12.dp))
-                SmallBtn("-") { onDurationChange((durationMin - 1).coerceAtLeast(1)) }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                SmallBtn("-30") { viewModel.setDuration((durationMin - 30).coerceAtLeast(1)) }
+                Spacer(modifier = Modifier.height(6.dp))
+                SmallBtn("-") { viewModel.setDuration((durationMin - 1).coerceAtLeast(1)) }
             }
 
-            // القلب (الوقت بحجم أكبر و تناسق عمودي)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = String.format("%02dh", durationMin / 60),
-                    fontSize = 26.sp,
+                    fontSize = 22.sp,
                     color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
-                    lineHeight = 28.sp
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = String.format("%02dm", durationMin % 60),
-                    fontSize = 26.sp,
+                    fontSize = 22.sp,
                     color = Color(0xFF90CAF9),
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif,
-                    lineHeight = 28.sp
+                    fontWeight = FontWeight.Bold
                 )
             }
 
-            // الجناح الأيمن
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                SmallBtn("+30") { onDurationChange((durationMin + 30).coerceAtMost(720)) }
-                Spacer(modifier = Modifier.height(12.dp))
-                SmallBtn("+") { onDurationChange((durationMin + 1).coerceAtMost(720)) }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                SmallBtn("+30") { viewModel.setDuration((durationMin + 30).coerceAtMost(720)) }
+                Spacer(modifier = Modifier.height(6.dp))
+                SmallBtn("+") { viewModel.setDuration((durationMin + 1).coerceAtMost(720)) }
             }
         }
 
-        Spacer(modifier = Modifier.weight(0.1f))
+        Spacer(modifier = Modifier.weight(0.05f))
 
-        // 3. زر START TRACKING فائق الرشاقة (Pill Style)
+        // Hard Deadline Row
+        if (!deadlineEnabled) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(30.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(Color.White.copy(alpha = 0.05f))
+                    .clickable { viewModel.toggleHardDeadline() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "⏰ Set deadline",
+                    fontSize = 10.sp,
+                    color = Color.White.copy(alpha = 0.4f),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(0.75f).height(30.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .clickable { viewModel.adjustHardDeadline(-15) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("−", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Text(
+                    text = "⏰ ${String.format("%02d:%02d", deadlineMinutes / 60, deadlineMinutes % 60)}",
+                    fontSize = 13.sp,
+                    color = Color(0xFFFFAB40),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { viewModel.toggleHardDeadline() }
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .clickable { viewModel.adjustHardDeadline(15) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(0.05f))
+
         Button(
-            onClick = onStartTracking,
-            modifier = Modifier
-                .fillMaxWidth(0.5f)
-                .height(52.dp),
+            onClick = { viewModel.startTracking() },
+            modifier = Modifier.fillMaxWidth(0.5f).height(44.dp),
             colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF3F51B5)),
-            shape = RoundedCornerShape(26.dp)
+            shape = RoundedCornerShape(22.dp)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "START", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.SansSerif, lineHeight = 12.sp)
-                Text(text = "TRACKING", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.SansSerif, lineHeight = 12.sp)
+                Text(text = "START", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(text = "TRACKING", fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
 
-        // تقرير آخر ليلة
         if (lastSleepSummary != "No data available") {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "LAST SESSION:", fontSize = 8.sp, color = Color.LightGray.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
             Text(text = lastSleepSummary, fontSize = 9.sp, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
         }
 
-        Spacer(modifier = Modifier.weight(0.1f))
+        Spacer(modifier = Modifier.weight(0.06f))
     }
 }
 
 @Composable
 fun MonitoringScreen(
-    sleepState: SleepState,
-    heartRate: Float,
-    isOnBody: Boolean,
-    onStop: () -> Unit,
-    onSimulate: () -> Unit
+    viewModel: MainViewModel
 ) {
-    // أنيميشن النبض "التنفسي" للقمر ليعطي شعوراً بالحياة
+    val sleepState by viewModel.currentSleepState.collectAsState()
+    val heartRate by viewModel.currentHeartRate.collectAsState()
+    val isOnBody by viewModel.isOnBody.collectAsState()
+
     val infiniteTransition = rememberInfiniteTransition()
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -380,7 +377,6 @@ fun MonitoringScreen(
     ) {
         Spacer(modifier = Modifier.weight(0.15f))
 
-        // 1. القمر (ينبض مباشرة بدون حلقات)
         Box(
             modifier = Modifier.size(80.dp),
             contentAlignment = Alignment.Center
@@ -390,7 +386,12 @@ fun MonitoringScreen(
                 contentDescription = "Moon",
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer(scaleX = pulseScale, scaleY = pulseScale) // تصحيح الاسم
+                    .graphicsLayer {
+                        scaleX = pulseScale
+                        scaleY = pulseScale
+                        // Optimization: Fix the layer to prevent the parent from shaking
+                        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
+                    }
                     .clip(CircleShape),
                 contentScale = ContentScale.Crop
             )
@@ -398,7 +399,6 @@ fun MonitoringScreen(
 
         Spacer(modifier = Modifier.weight(0.12f))
 
-        // 2. حالة النوم و البيانات (نظيفة بدون خلفية)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth(0.85f).padding(vertical = 4.dp)
@@ -408,8 +408,7 @@ fun MonitoringScreen(
                 fontSize = 16.sp,
                 color = if (sleepState == SleepState.ASLEEP) Color(0xFF81C784) else Color(0xFF90CAF9),
                 fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                fontFamily = FontFamily.SansSerif
+                textAlign = TextAlign.Center
             )
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -424,7 +423,6 @@ fun MonitoringScreen(
                         text = " ${heartRate.toInt()}", 
                         style = MaterialTheme.typography.caption2, 
                         color = Color(0xFFF44336),
-                        fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -434,7 +432,6 @@ fun MonitoringScreen(
                         text = " Active", 
                         style = MaterialTheme.typography.caption2, 
                         color = Color.White,
-                        fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -443,41 +440,27 @@ fun MonitoringScreen(
 
         Spacer(modifier = Modifier.weight(0.18f))
 
-        // 3. أزرار التحكم الرشيقة (تم تصغيرها بطلبك)
         Row(
             modifier = Modifier.fillMaxWidth(0.8f).padding(bottom = 16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
-                onClick = onStop,
-                modifier = Modifier
-                    .height(38.dp)
-                    .weight(1f)
-                    .padding(end = 8.dp),
+                onClick = { viewModel.stopTracking() },
+                modifier = Modifier.height(38.dp).weight(1f).padding(end = 8.dp),
                 colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFB71C1C)),
                 shape = RoundedCornerShape(19.dp)
             ) {
-                Text(
-                    text = "STOP", 
-                    fontSize = 11.sp, 
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif
-                )
+                Text(text = "STOP", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             
             Button(
-                onClick = onSimulate,
+                onClick = { viewModel.simulateSleep() },
                 modifier = Modifier.size(38.dp),
                 colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color.White.copy(alpha = 0.1f)),
                 shape = CircleShape
             ) {
-                Text(
-                    text = "SM", 
-                    fontSize = 8.sp, 
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.SansSerif
-                )
+                Text(text = "SM", fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -498,44 +481,5 @@ fun SmallBtn(text: String, onClick: () -> Unit) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(text, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
-    }
-}
-
-@Composable
-fun PulseIcon() {
-    Box(
-        modifier = Modifier
-            .padding(top = 16.dp)
-            .size(60.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .background(Color(0xFF64B5F6).copy(alpha = 0.05f), CircleShape)
-        )
-        
-        Image(
-            painter = painterResource(id = com.smartsleep.alarm.R.drawable.ic_realistic_moon),
-            contentDescription = "Realistic Moon",
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(CircleShape),
-            contentScale = ContentScale.Fit
-        )
-    }
-}
-
-@Composable
-fun StatusChip(icon: String, label: String, color: Color) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        Text(icon, fontSize = 11.sp)
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(label, fontSize = 11.sp, color = color, fontWeight = FontWeight.Bold)
     }
 }

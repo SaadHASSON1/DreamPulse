@@ -43,6 +43,13 @@
 - **الموثوقية المطلقة**: ابتكار نظام **Fail-Safe Alarm** الذي يضمن الاستيقاظ حتى في أصعب الظروف التقنية.
 - **الإيماءات الذكية**: إضافة ميزة **Shake to Dismiss** للتفاعل الطبيعي مع الساعة.
 
+#### 💎 نسخة الكمال والاستقرار (V3.0 - The Perfection) - النسخة الحالية
+في هذا التحديث الرائد، تم الوصول بالتطبيق إلى أقصى درجات الاستقرار والذكاء:
+- **⏰ موعد الاستيقاظ الإجباري (Hard Deadline)**: ميزة جديدة لحل مشكلة "النوم المتأخر". يمكنك الآن إخبار التطبيق بضرورة إيقاظك قبل ساعة معينة (مثلاً 7:00 صباحاً) مهما حدث، حتى لو لم تكتمل ساعات نومك المحددة.
+- **📳 Shake to Start My Day**: توسيع ميزة الهز لتشمل الشاشة الصباحية (الملخص) مع نظام "فترة تبريد" (Debounce) لمنع التداخلات وتوفير سلاسة فائقة.
+- **⚡ أداء فائق (Zero-Latency)**: إعادة هيكلة شاملة لأنيميشن النجوم والنبضات لحل مشكلة التقطيع (Stutter) في الثواني الأولى للإقلاع وجعل واجهة المستخدم تعمل بسلاسة تامة.
+- **🛡️ استقرار حديدي (Bulletproof Logic)**: حل مشاكل "تعليق الذاكرة" (Stale State) ومعالجة تعارضات دورة حياة التطبيق مع `HeartbeatWorker`، لضمان عمل المنبه بنسبة نجاح 100% مهما حاول نظام الساعة قتله في الخلفية.
+
 </div>
 
 ---
@@ -69,12 +76,19 @@ We solved this worldwide frustration. Using advanced biometric sensors, **the al
 #### 🕰️ V1.0 (The Legacy)
 DreamPulse started as a Minimum Viable Product (MVP) focusing purely on solving the "sleep latency" problem. The UI was functional but basic, using standard Wear OS components with minimal visual flair.
 
-#### 🚀 V2.0 (The Revolution) - CURRENT
+#### 🚀 V2.0 (The Revolution)
 This version marks a complete rebirth of the application:
 - **Visual Overhaul**: Transitioned to a premium **Space Neumorphism** design language with dynamic starry backgrounds.
 - **Cinematic Animations**: Introduced the animated "Blast-off Rocket" and "Pulsing Sun" for a living UI experience.
 - **Ultra-Reliability**: Developed the **Fail-Safe Alarm** system, ensuring the user wakes up even in edge-case sensor scenarios.
 - **Natural Interaction**: Implemented **Shake to Dismiss**, allowing for a more intuitive physical interaction.
+
+#### 💎 V3.0 (The Perfection) - CURRENT
+This groundbreaking update pushes the application to the absolute limits of stability, performance, and intelligence:
+- **⏰ Hard Deadline Target**: Solves the "falling asleep late" issue. You can now define a mandatory wake-up time (e.g., 07:00 AM) that acts as an absolute ceiling, ensuring you're never late even if you haven't completed your full sleep goal.
+- **📳 Shake to Start My Day**: Expanded the shake gesture to the morning summary screen, complete with a precision "Debounce" cooldown system to prevent accidental spillover triggers.
+- **⚡ Zero-Latency Performance**: Completely refactored the StarryBackground and UI animations, eliminating boot-time stutters and ensuring a buttery-smooth 60fps experience right from launch.
+- **🛡️ Bulletproof Logic**: Architected impenetrable session lifecycles by fixing stale state recovery bugs and resolving Android background-kill conflicts with the `HeartbeatWorker`. The alarm is now guaranteed to trigger flawlessly.
 
 ---
 

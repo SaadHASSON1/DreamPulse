@@ -22,6 +22,9 @@ class PreferencesManager @Inject constructor(
     private val USER_NAME_KEY = androidx.datastore.preferences.core.stringPreferencesKey("user_name")
     private val IS_TRACKING_ACTIVE_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("is_tracking_active")
     private val LAST_SLEEP_SUMMARY_KEY = androidx.datastore.preferences.core.stringPreferencesKey("last_sleep_summary")
+    private val IS_SLEEP_CONFIRMED_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("is_sleep_confirmed")
+    private val SERVICE_START_TIME_KEY = longPreferencesKey("service_start_time")
+    private val TARGET_WAKE_TIME_KEY = longPreferencesKey("target_wake_time")
 
     val sleepDuration: Flow<Int> = context.dataStore.data.map { preferences ->
         preferences[SLEEP_DURATION_KEY] ?: 480 // 8 hours in minutes
@@ -41,6 +44,18 @@ class PreferencesManager @Inject constructor(
 
     val lastSleepSummary: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[LAST_SLEEP_SUMMARY_KEY] ?: "No data"
+    }
+
+    val isSleepConfirmed: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[IS_SLEEP_CONFIRMED_KEY] ?: false
+    }
+
+    val serviceStartTime: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[SERVICE_START_TIME_KEY] ?: 0L
+    }
+
+    val targetWakeTime: Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[TARGET_WAKE_TIME_KEY] ?: 0L
     }
 
     suspend fun saveSleepDuration(minutes: Int) {
@@ -76,6 +91,48 @@ class PreferencesManager @Inject constructor(
     suspend fun saveSleepSummary(summary: String) {
         context.dataStore.edit { preferences ->
             preferences[LAST_SLEEP_SUMMARY_KEY] = summary
+        }
+    }
+
+    suspend fun saveSleepConfirmed(confirmed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[IS_SLEEP_CONFIRMED_KEY] = confirmed
+        }
+    }
+
+    suspend fun saveServiceStartTime(timestamp: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[SERVICE_START_TIME_KEY] = timestamp
+        }
+    }
+
+    suspend fun saveTargetWakeTime(timestamp: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[TARGET_WAKE_TIME_KEY] = timestamp
+        }
+    }
+
+    // Hard Deadline ("Must wake by" feature)
+    private val HARD_DEADLINE_ENABLED_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("hard_deadline_enabled")
+    private val HARD_DEADLINE_MINUTES_KEY = intPreferencesKey("hard_deadline_minutes")
+
+    val hardDeadlineEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[HARD_DEADLINE_ENABLED_KEY] ?: false
+    }
+
+    val hardDeadlineMinutes: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[HARD_DEADLINE_MINUTES_KEY] ?: 420 // Default: 07:00 AM
+    }
+
+    suspend fun saveHardDeadlineEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[HARD_DEADLINE_ENABLED_KEY] = enabled
+        }
+    }
+
+    suspend fun saveHardDeadlineMinutes(minutes: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[HARD_DEADLINE_MINUTES_KEY] = minutes
         }
     }
 }

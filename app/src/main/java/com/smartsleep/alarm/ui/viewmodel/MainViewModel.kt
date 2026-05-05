@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartsleep.alarm.data.repository.SleepRepository
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
@@ -33,13 +33,15 @@ class MainViewModel @Inject constructor(
     private val healthServicesManager: HealthServicesManager
 ) : ViewModel() {
 
-    val isTracking: StateFlow<Boolean> = sleepRepository.isTracking
+    val isTrackingState: StateFlow<Boolean> = sleepRepository.isTracking
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    private val _sleepDurationMinutes = MutableStateFlow(480) // 8 hours default
+    private val _sleepDurationMinutes = MutableStateFlow(480)
     val sleepDurationMinutes: StateFlow<Int> = _sleepDurationMinutes
 
-    private val _permissionRequestEvent = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(replay = 0)
-    val permissionRequestEvent = _permissionRequestEvent.asSharedFlow()
+    // Activity listens to this to run its permission check flow
+    private val _needsPermissionCheck = MutableSharedFlow<Unit>(replay = 1, extraBufferCapacity = 1)
+    val needsPermissionCheck = _needsPermissionCheck.asSharedFlow()
 
     private val _currentSleepState = MutableStateFlow(SleepState.UNKNOWN)
     val currentSleepState: StateFlow<SleepState> = _currentSleepState
@@ -58,11 +60,12 @@ class MainViewModel @Inject constructor(
     private val _currentHeartRate = MutableStateFlow(0f)
     val currentHeartRate: StateFlow<Float> = _currentHeartRate
 
-    private val _isTrackingState = MutableStateFlow(false)
-    val isTrackingState: StateFlow<Boolean> = _isTrackingState
+    // Hard Deadline ("Must wake by" feature)
+    private val _hardDeadlineEnabled = MutableStateFlow(false)
+    val hardDeadlineEnabled: StateFlow<Boolean> = _hardDeadlineEnabled
 
-    private val _userName = MutableStateFlow("")
-    val userName: StateFlow<String> = _userName
+    private val _hardDeadlineMinutes = MutableStateFlow(420) // 07:00 AM
+    val hardDeadlineMinutes: StateFlow<Int> = _hardDeadlineMinutes
 
     init {
         viewModelScope.launch {
@@ -81,17 +84,20 @@ class MainViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            preferencesManager.userName.collectLatest {
-                _userName.value = it
-            }
-        }
-        // Link Repository Heart Rate to ViewModel State
-        // This ensures the tracking screen shows live data from HealthServices during sleep monitoring
-        viewModelScope.launch {
             sleepRepository.heartRate.collectLatest { bpm ->
                 if (bpm > 0) {
                     _currentHeartRate.value = bpm
                 }
+            }
+        }
+        viewModelScope.launch {
+            preferencesManager.hardDeadlineEnabled.collectLatest {
+                _hardDeadlineEnabled.value = it
+            }
+        }
+        viewModelScope.launch {
+            preferencesManager.hardDeadlineMinutes.collectLatest {
+                _hardDeadlineMinutes.value = it
             }
         }
     }
@@ -103,60 +109,92 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Called by the UI button. Emits a permission-check request to the Activity.
+     * If all permissions pass, the Activity calls executeStartTracking().
+     */
     fun startTracking() {
-        if (isTrackingState.value) return // منع التكرار
-        _isTrackingState.value = true
-        
-        viewModelScope.launch {
-            _permissionRequestEvent.emit(Unit)
-        }
-        
-        android.widget.Toast.makeText(context, "Starting Service...", android.widget.Toast.LENGTH_SHORT).show()
-        val intent = Intent(context, SleepMonitorService::class.java).apply {
-            putExtra(SleepMonitorService.EXTRA_SLEEP_DURATION, _sleepDurationMinutes.value * 60 * 1000L)
-        }
-        try {
-            context.startForegroundService(intent)
-            sleepRepository.setTracking(true)
-            sleepRepository.startMonitoring() // تشغيل المراقبة الخلفية فقط عند الضغط على الزر
-        } catch (e: Exception) {
-            android.widget.Toast.makeText(context, "Error starting service: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
-            e.printStackTrace()
-            _isTrackingState.value = false // تصفير الحالة في حال الفشل
-        }
+        if (isTrackingState.value) return
+        Log.d("MainViewModel", "startTracking() — requesting permission check")
+        _needsPermissionCheck.tryEmit(Unit)
     }
 
-    fun checkPermissions() {
-        val sensorsGranted = context.checkSelfPermission(Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED
-        val backgroundSensorsGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            context.checkSelfPermission("android.permission.BODY_SENSORS_BACKGROUND") == PackageManager.PERMISSION_GRANTED
-        } else true
-        
-        // لا نقوم بتشغيل المراقبة هنا أبداً، ننتظر ضغطة المستخدم على الزر
+    /**
+     * Called ONLY by the Activity after it has confirmed all permissions are granted.
+     */
+    fun executeStartTracking() {
+        if (isTrackingState.value) return
+        Log.d("MainViewModel", "executeStartTracking() — launching service")
+
+        // Clear any stale state to ensure a completely fresh tracking session
+        viewModelScope.launch {
+            preferencesManager.saveSleepConfirmed(false)
+            preferencesManager.saveServiceStartTime(0L)
+            preferencesManager.saveTargetWakeTime(0L)
+        }
+
+        // Vibration feedback
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            vibrator?.vibrate(android.os.VibrationEffect.createOneShot(150, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator?.vibrate(150)
+        }
+
+        val intent = Intent(context, SleepMonitorService::class.java).apply {
+            putExtra(SleepMonitorService.EXTRA_SLEEP_DURATION, _sleepDurationMinutes.value * 60 * 1000L)
+            putExtra(SleepMonitorService.EXTRA_FRESH_START, true)
+        }
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+            sleepRepository.setTracking(true)
+            // NOTE: Don't call startMonitoring() here — the Service handles it in onStartCommand()
+            Log.d("MainViewModel", "Service started — tracking = true")
+            
+            val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.smartsleep.alarm.worker.SleepHeartbeatWorker>(
+                15, java.util.concurrent.TimeUnit.MINUTES
+            ).build()
+            androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                "SleepHeartbeat",
+                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                workRequest
+            )
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Failed to start service", e)
+        }
     }
 
     fun stopTracking() {
-        _isTrackingState.value = false
         val intent = Intent(context, SleepMonitorService::class.java).apply {
             action = SleepMonitorService.ACTION_STOP_MONITORING
         }
-        context.startForegroundService(intent)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
         sleepRepository.setTracking(false)
         healthServicesManager.updateSleepState(SleepState.UNKNOWN)
+        healthServicesManager.setSimulation(false)
+        androidx.work.WorkManager.getInstance(context).cancelUniqueWork("SleepHeartbeat")
         
-        // إيقاف الاهتزاز عند الضغط على STOP
+        viewModelScope.launch {
+            preferencesManager.saveSleepConfirmed(false)
+            preferencesManager.saveServiceStartTime(0L)
+            preferencesManager.saveTargetWakeTime(0L)
+        }
+        
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
         vibrator?.cancel()
     }
 
     fun simulateSleep() {
-        android.widget.Toast.makeText(context, "Simulating Sleep...", android.widget.Toast.LENGTH_SHORT).show()
-        // إرسال إشارة مباشرة للخدمة لضمان الاستجابة الفورية مع تزويدها بالوقت المختار
-        val intent = Intent(context, com.smartsleep.alarm.service.SleepMonitorService::class.java).apply {
-            action = com.smartsleep.alarm.service.SleepMonitorService.ACTION_SIMULATE_SLEEP
-            putExtra(com.smartsleep.alarm.service.SleepMonitorService.EXTRA_SLEEP_DURATION, _sleepDurationMinutes.value * 60 * 1000L)
-        }
-        context.startForegroundService(intent)
+        healthServicesManager.setSimulation(true)
     }
 
     fun resetSleepSummary() {
@@ -166,7 +204,6 @@ class MainViewModel @Inject constructor(
     }
 
     fun updateMotion(magnitude: Float) {
-        // فلترة: لا تحدث الواجهة إلا إذا كان التغيير ملموساً (أكبر من 0.05)
         if (Math.abs(_currentMotion.value - magnitude) > 0.05f) {
             _currentMotion.value = magnitude
         }
@@ -177,7 +214,6 @@ class MainViewModel @Inject constructor(
     }
 
     fun updateHeartRate(bpm: Float) {
-        // فلترة: لا تحدث الواجهة لنبض القلب إلا إذا تغيرت القيمة الصحيحة
         if (_currentHeartRate.value.toInt() != bpm.toInt()) {
             _currentHeartRate.value = bpm
         }
@@ -186,6 +222,22 @@ class MainViewModel @Inject constructor(
     fun saveName(name: String) {
         viewModelScope.launch {
             preferencesManager.saveUserName(name)
+        }
+    }
+
+    fun toggleHardDeadline() {
+        val newValue = !_hardDeadlineEnabled.value
+        _hardDeadlineEnabled.value = newValue
+        viewModelScope.launch {
+            preferencesManager.saveHardDeadlineEnabled(newValue)
+        }
+    }
+
+    fun adjustHardDeadline(deltaMinutes: Int) {
+        val newValue = (_hardDeadlineMinutes.value + deltaMinutes).coerceIn(0, 1439)
+        _hardDeadlineMinutes.value = newValue
+        viewModelScope.launch {
+            preferencesManager.saveHardDeadlineMinutes(newValue)
         }
     }
 }

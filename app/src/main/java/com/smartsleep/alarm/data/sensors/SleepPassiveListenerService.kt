@@ -20,4 +20,26 @@ class SleepPassiveListenerService : PassiveListenerService() {
             healthServicesManager.updateSleepState(SleepState.ASLEEP)
         }
     }
+
+    override fun onNewDataPointsReceived(dataPoints: androidx.health.services.client.data.DataPointContainer) {
+        val samples = dataPoints.getData(DataType.HEART_RATE_BPM)
+        if (samples.isNotEmpty()) {
+            val lastBpm = samples.last().value
+            healthServicesManager.updateHeartRate(lastBpm.toFloat())
+        }
+    }
+
+    override fun onPermissionLost() {
+        android.util.Log.e("PassiveListener", "Permission lost for BODY_SENSORS_BACKGROUND")
+        val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val notification = androidx.core.app.NotificationCompat.Builder(this, com.smartsleep.alarm.util.NotificationHelper.TRACKING_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("DreamPulse needs permission")
+            .setContentText("Background sensor permission lost. Please re-grant it to track sleep.")
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .build()
+        notificationManager.notify(888, notification)
+    }
+
+
 }

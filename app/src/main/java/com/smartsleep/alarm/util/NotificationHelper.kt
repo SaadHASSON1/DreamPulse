@@ -4,8 +4,11 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
+import android.app.PendingIntent
 import androidx.core.app.NotificationCompat
 import com.smartsleep.alarm.R
+import com.smartsleep.alarm.ui.AlarmActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,12 +26,18 @@ class NotificationHelper @Inject constructor(
     private fun createNotificationChannels() {
         val trackingChannel = NotificationChannel(
             TRACKING_CHANNEL_ID,
-            "Sleep Tracking",
+            "Sleep Tracking Status",
             NotificationManager.IMPORTANCE_HIGH
-        )
+        ).apply {
+            description = "Shows live sleep tracking data"
+            setSound(null, null)
+            enableVibration(false)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
+        
         val alarmChannel = NotificationChannel(
             ALARM_CHANNEL_ID,
-            "Alarms",
+            "Sleep Alarms",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Channel for sleep alarms"
@@ -43,36 +52,36 @@ class NotificationHelper @Inject constructor(
 
     fun getTrackingNotification(content: String): Notification {
         return NotificationCompat.Builder(context, TRACKING_CHANNEL_ID)
-            .setContentTitle(context.getString(R.string.app_name))
+            .setContentTitle("DreamPulse Tracking")
             .setContentText(content)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setSilent(true)
             .build()
     }
 
     fun getAlarmNotification(): Notification {
-        val activityIntent = android.content.Intent(context, com.smartsleep.alarm.ui.AlarmActivity::class.java).apply {
-            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val activityIntent = Intent(context, AlarmActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-        val fullScreenPendingIntent = android.app.PendingIntent.getActivity(
+        val fullScreenPendingIntent = PendingIntent.getActivity(
             context, 1001, activityIntent, 
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Stop button inside notification
-        val stopIntent = android.content.Intent(context, com.smartsleep.alarm.ui.AlarmActivity::class.java).apply {
+        val stopIntent = Intent(context, AlarmActivity::class.java).apply {
             putExtra("action", "show_summary")
-            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
-        val stopPendingIntent = android.app.PendingIntent.getActivity(
+        val stopPendingIntent = PendingIntent.getActivity(
             context, 1002, stopIntent, 
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         return NotificationCompat.Builder(context, ALARM_CHANNEL_ID)
-            .setContentTitle(context.getString(R.string.app_name))
+            .setContentTitle("DreamPulse Alarm")
             .setContentText("Wake Up!")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -86,8 +95,8 @@ class NotificationHelper @Inject constructor(
     }
 
     companion object {
-        const val TRACKING_CHANNEL_ID = "tracking_channel"
-        const val ALARM_CHANNEL_ID = "alarm_channel_v4" // Incremented version to ensure importance is applied
+        const val TRACKING_CHANNEL_ID = "tracking_channel_v3"
+        const val ALARM_CHANNEL_ID = "alarm_channel_v5"
         const val NOTIFICATION_ID = 1001
     }
 }
