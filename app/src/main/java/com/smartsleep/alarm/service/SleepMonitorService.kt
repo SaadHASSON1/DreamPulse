@@ -129,6 +129,23 @@ class SleepMonitorService : Service(), SensorEventListener {
                 preferencesManager.saveSleepConfirmed(false)
                 healthServicesManager.resetStates()
                 lastMotionTime = System.currentTimeMillis()
+                
+                // Ultimate Fail-Safe: Pre-schedule Hard Deadline immediately if enabled
+                val deadlineEnabled = preferencesManager.hardDeadlineEnabled.first()
+                if (deadlineEnabled) {
+                    val deadlineMinutes = preferencesManager.hardDeadlineMinutes.first()
+                    val cal = java.util.Calendar.getInstance().apply {
+                        set(java.util.Calendar.HOUR_OF_DAY, deadlineMinutes / 60)
+                        set(java.util.Calendar.MINUTE, deadlineMinutes % 60)
+                        set(java.util.Calendar.SECOND, 0)
+                        set(java.util.Calendar.MILLISECOND, 0)
+                    }
+                    if (cal.timeInMillis <= System.currentTimeMillis()) {
+                        cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                    }
+                    Log.d("SleepMonitor", "Pre-scheduling Hard Deadline as fail-safe: ${java.text.SimpleDateFormat("HH:mm").format(cal.time)}")
+                    scheduleAlarmsInternal(cal.timeInMillis)
+                }
             }
             
             if (!isInitialized) {
