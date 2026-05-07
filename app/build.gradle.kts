@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.smartsleep.alarm"
+    namespace = "com.x13labs.dreampulse"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.smartsleep.alarm"
+        applicationId = "com.x13labs.dreampulse"
         minSdk = 30 
         targetSdk = 35 
         versionCode = 1
