@@ -68,40 +68,156 @@ fun StarryBackground(modifier: Modifier = Modifier) {
 
 @Composable
 fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
-    // Optimization: Collect states at the top level
     val isTracking by viewModel.isTrackingState.collectAsState()
-    
-    // We only trigger recomposition of the Crossfade when showWelcome or isTracking changes
+    val context = LocalContext.current
+
+    // Show permission screen only if:
+    // 1. Android 14+ device
+    // 2. Permission not yet granted
+    // 3. User hasn't dismissed it before
+    val needsPermission = remember {
+        val prefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+        val dismissed = prefs.getBoolean("perm_screen_dismissed", false)
+        if (dismissed) return@remember false
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val nm = context.getSystemService(android.app.NotificationManager::class.java)
+            !nm.canUseFullScreenIntent()
+        } else false
+    }
+
+    var showPermissionScreen by remember { mutableStateOf(needsPermission) }
     var showWelcome by remember { mutableStateOf(true) }
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         StarryBackground()
-        
-        Crossfade(
-            targetState = if (showWelcome) "welcome" else if (isTracking) "tracking" else "setup",
-            animationSpec = tween(500, easing = LinearEasing),
-            label = "MainScreenTransition"
-        ) { state ->
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                when (state) {
-                    "welcome" -> WelcomeScreen(
-                        onStart = { showWelcome = false }
-                    )
-                    "setup" -> SetupScreen(
-                        viewModel = viewModel,
-                        onBack = { showWelcome = true }
-                    )
-                    "tracking" -> MonitoringScreen(
-                        viewModel = viewModel
-                    )
+
+        if (showPermissionScreen) {
+            PermissionSetupScreen(
+                onDismiss = { showPermissionScreen = false }
+            )
+        } else {
+            Crossfade(
+                targetState = if (showWelcome) "welcome" else if (isTracking) "tracking" else "setup",
+                animationSpec = tween(500, easing = LinearEasing),
+                label = "MainScreenTransition"
+            ) { state ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when (state) {
+                        "welcome"  -> WelcomeScreen(onStart = { showWelcome = false })
+                        "setup"    -> SetupScreen(viewModel = viewModel, onBack = { showWelcome = true })
+                        "tracking" -> MonitoringScreen(viewModel = viewModel)
+                    }
                 }
             }
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Permission Setup Screen — shown once on Android 14+
+// ─────────────────────────────────────────────────────────────
+@Composable
+fun PermissionSetupScreen(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+
+    // Helper to permanently dismiss this screen
+    fun dismiss() {
+        context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("perm_screen_dismissed", true).apply()
+        onDismiss()
+    }
+
+    // Poll every second — auto-dismiss when permission is granted
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val nm = context.getSystemService(android.app.NotificationManager::class.java)
+                if (nm.canUseFullScreenIntent()) {
+                    dismiss()
+                    break
+                }
+            }
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "perm_pulse")
+    val pulse by infiniteTransition.animateFloat(
+        initialValue = 0.85f, targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+        label = "perm_scale"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Warning icon
+        Text(
+            text = "⚠️",
+            fontSize = 26.sp,
+            modifier = Modifier.graphicsLayer { scaleX = pulse; scaleY = pulse }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Permission Required",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFFFF5252),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(5.dp))
+
+        Text(
+            text = "Enable \"Full-screen intents\" so the alarm screen appears automatically.",
+            fontSize = 10.sp,
+            color = Color.White.copy(alpha = 0.8f),
+            textAlign = TextAlign.Center,
+            lineHeight = 14.sp
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Open Settings button
+        Button(
+            onClick = {
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                        data = android.net.Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(0.82f).height(38.dp),
+            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFF5252)),
+            shape = RoundedCornerShape(19.dp)
+        ) {
+            Text("Open Settings", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Skip — saves flag so this screen never appears again
+        Text(
+            text = "Skip",
+            fontSize = 9.sp,
+            color = Color.White.copy(alpha = 0.35f),
+            modifier = Modifier.clickable { dismiss() }
+        )
+    }
+}
+
 
 @Composable
 fun WelcomeScreen(onStart: () -> Unit) {

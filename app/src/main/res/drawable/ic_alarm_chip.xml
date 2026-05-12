@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- أيقونة المنبه للـ OngoingActivity chip — دائرة حمراء مع رمز منبه -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- خلفية دائرية حمراء -->
+    <path
+        android:fillColor="#FFFF5252"
+        android:pathData="M12,12m-11,0a11,11 0,1 1,22 0a11,11 0,1 1,-22 0" />
+
+    <!-- جرس المنبه (أبيض) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,6.5C9.51,6.5 7.5,8.51 7.5,11v4l-1.5,1.5v0.5h12v-0.5L16.5,15v-4C16.5,8.51 14.49,6.5 12,6.5z" />
+    <!-- قاعدة الجرس -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,18.5c0.83,0 1.5,-0.67 1.5,-1.5h-3C10.5,17.83 11.17,18.5 12,18.5z" />
+    <!-- خطوط الاهتزاز -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="0.8"
+        android:pathData="M6,8.5C5.16,7.4 4.67,6 4.67,4.5" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="0.8"
+        android:pathData="M18,8.5C18.84,7.4 19.33,6 19.33,4.5" />
+</vector>

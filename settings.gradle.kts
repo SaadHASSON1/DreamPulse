@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SmartSleepAlarm"
+rootProject.name = "DreamPulse"
 include(":app")

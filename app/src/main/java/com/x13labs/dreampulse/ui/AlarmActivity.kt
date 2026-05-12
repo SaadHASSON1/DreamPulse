@@ -1,5 +1,6 @@
 package com.x13labs.dreampulse.ui
 
+import android.app.ComponentCaller
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -36,6 +37,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
+import androidx.annotation.RequiresApi
 import kotlinx.coroutines.delay
 import kotlin.math.sqrt
 
@@ -321,10 +324,10 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent?.getStringExtra("action") == "show_summary") {
+        if (intent.getStringExtra("action") == "show_summary") {
             showSummary.value = true
         }
     }
