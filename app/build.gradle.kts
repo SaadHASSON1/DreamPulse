@@ -32,6 +32,16 @@ android {
             }
         }
     }
+    buildTypes {
+        // Same as release (R8, not debuggable) but signed with the debug key, for measuring
+        // real performance on a watch without the upload keystore.
+        create("profiling") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+            matchingFallbacks += listOf("release")
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -65,6 +75,8 @@ dependencies {
 
     // Wear OS Tiles
     testImplementation("junit:junit:4.13.2")
+    // Installs the baseline profiles shipped with Compose/Wear libraries (less jank on first use)
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
     implementation("androidx.wear.tiles:tiles:1.6.2")
     implementation("androidx.wear.protolayout:protolayout:1.4.2")

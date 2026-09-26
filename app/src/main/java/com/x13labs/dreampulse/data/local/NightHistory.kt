@@ -67,7 +67,9 @@ object NightHistory {
 
 /**
  * Per-minute signals while waiting for sleep, one CSV file per session, for tuning the
- * detector against real nights. Kept for the last 7 sessions, in app-private storage.
+ * detector against real nights. Kept for the last 7 sessions in the app's own external
+ * files folder (other apps cannot read it; adb can, even on a release build), and echoed
+ * to logcat under the NightLog tag.
  *
  * Columns: time,motionBursts,heartRate,worn,stillMinutes
  *   worn is 1 (on wrist), 0 (off) or empty (unknown); heartRate is empty when not sampled.
@@ -75,7 +77,8 @@ object NightHistory {
 object NightLog {
     private const val KEEP_FILES = 7
 
-    private fun dir(context: Context) = File(context.filesDir, "nightlogs").apply { mkdirs() }
+    private fun dir(context: Context) =
+        (context.getExternalFilesDir("nightlogs") ?: File(context.filesDir, "nightlogs")).apply { mkdirs() }
 
     @Synchronized
     fun append(context: Context, sessionStart: Long, line: String) {
@@ -85,5 +88,6 @@ object NightLog {
             dir(context).listFiles()?.sortedBy { it.name }?.dropLast(KEEP_FILES)?.forEach { it.delete() }
         }
         f.appendText(line + "\n")
+        android.util.Log.d("NightLog", "$sessionStart,$line")
     }
 }

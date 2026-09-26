@@ -166,8 +166,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         lifecycleScope.launch {
             viewModel.isTrackingState.collectLatest { active ->
                 if (active) {
-                    accelerometer?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI) }
-                    heartRateSensor?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI) }
                     offBodySensor?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_NORMAL) }
                 } else {
                     sensorManager?.unregisterListener(this@MainActivity)

@@ -66,7 +66,7 @@ fun TrackingScreen(viewModel: MainViewModel) {
 private fun WaitingScreen(latestAlarm: Long, offWrist: Boolean, onStop: () -> Unit) {
     val context = LocalContext.current
     val breath = rememberInfiniteTransition(label = "breath")
-    val halo by breath.animateFloat(
+    val halo = breath.animateFloat(
         initialValue = 0f, targetValue = 0f,
         animationSpec = infiniteRepeatable(
             keyframes {
@@ -88,7 +88,7 @@ private fun WaitingScreen(latestAlarm: Long, offWrist: Boolean, onStop: () -> Un
         ) {
             Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.size(56.dp)) {
-                    val r = size.minDimension / 2f * (0.72f + 0.28f * halo)
+                    val r = size.minDimension / 2f * (0.72f + 0.28f * halo.value)
                     drawCircle(Dream.MoonNight, radius = r, style = Stroke(width = 1.5.dp.toPx()))
                 }
                 Moon(34.dp)
@@ -138,7 +138,7 @@ private fun AsleepScreen(sleepStart: Long, wakeAt: Long, onStop: () -> Unit) {
 
     Box(Modifier.fillMaxSize().background(Dream.DeepSky)) {
         EdgeRing(
-            fraction = elapsed, color = Dream.MoonNight, track = Dream.TrackDim,
+            fraction = { elapsed }, color = Dream.MoonNight, track = Dream.TrackDim,
             strokeWidth = 4.dp, inset = 8.dp,
             highlightFrom = windowFrom, highlightColor = Dream.DawnMid,
         )

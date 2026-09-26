@@ -29,6 +29,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -65,16 +69,16 @@ fun AlarmScreen(onDismiss: () -> Unit) {
 
     val sunrise = remember { MutableTransitionState(false).apply { targetState = true } }
     val t = rememberTransition(sunrise, label = "sunrise")
-    val bg by t.animateColor({ tween(20_000, easing = LinearEasing) }, label = "bg") { up -> if (up) Dream.Dawn else Dream.DeepSky }
-    val rise by t.animateFloat({ tween(20_000, easing = LinearEasing) }, label = "rise") { up -> if (up) 0f else 1f }
+    val bg = t.animateColor({ tween(20_000, easing = LinearEasing) }, label = "bg") { up -> if (up) Dream.Dawn else Dream.DeepSky }
+    val rise = t.animateFloat({ tween(20_000, easing = LinearEasing) }, label = "rise") { up -> if (up) 0f else 1f }
     val glow = rememberInfiniteTransition(label = "glow")
-    val pulse by glow.animateFloat(0.92f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Reverse), label = "pulse")
+    val pulse = glow.animateFloat(0.92f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Reverse), label = "pulse")
 
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(10_000) } }
 
     Box(
-        Modifier.fillMaxSize().background(bg)
+        Modifier.fillMaxSize().drawBehind { drawRect(bg.value) }
             .holdToConfirm(
                 hold, durationMs = 1500,
                 onFilled = { view.performHapticFeedback(HapticFeedbackConstants.CONFIRM) },
@@ -82,7 +86,7 @@ fun AlarmScreen(onDismiss: () -> Unit) {
             )
     ) {
         EdgeRing(
-            fraction = hold.value.value, color = Dream.Sun, track = Color.Transparent,
+            fraction = { hold.value.value }, color = Dream.Sun, track = Color.Transparent,
             fullCircle = true, strokeWidth = 6.dp, inset = 3.dp,
         )
         Column(
@@ -95,8 +99,10 @@ fun AlarmScreen(onDismiss: () -> Unit) {
             Box(Modifier.height((44 + SUN_RISE_DP).dp)) {
                 Sun(
                     44.dp,
-                    modifier = Modifier.align(Alignment.TopCenter).offset(y = (SUN_RISE_DP * rise).dp),
-                    color = Dream.Sun.copy(alpha = pulse),
+                    modifier = Modifier.align(Alignment.TopCenter)
+                        .offset { IntOffset(0, (SUN_RISE_DP.dp.toPx() * rise.value).roundToInt()) }
+                        .graphicsLayer { alpha = pulse.value },
+                    color = Dream.Sun,
                 )
             }
             Text(formatClock(context, now), fontSize = 36.sp, fontWeight = FontWeight.Medium, color = Dream.SunLight, maxLines = 1)

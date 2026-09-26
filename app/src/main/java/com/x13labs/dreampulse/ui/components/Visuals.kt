@@ -39,6 +39,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -105,7 +108,7 @@ object RingGeometry {
 
 @Composable
 fun EdgeRing(
-    fraction: Float,
+    fraction: () -> Float,
     color: Color,
     track: Color,
     modifier: Modifier = Modifier,
@@ -128,7 +131,7 @@ fun EdgeRing(
         if (highlightFrom != null && highlightFrom < 1f) {
             drawArc(highlightColor, start + sweep * highlightFrom, sweep * (1f - highlightFrom), false, topLeft, arcSize, style = stroke)
         }
-        val f = fraction.coerceIn(0f, 1f)
+        val f = fraction().coerceIn(0f, 1f)
         if (f > 0f) drawArc(color, start, sweep * f, false, topLeft, arcSize, style = stroke)
         if (knob) {
             val a = Math.toRadians((start + sweep * f).toDouble())
@@ -211,7 +214,7 @@ fun EdgeDial(
                 }
             }
     ) {
-        EdgeRing(fraction = fraction, color = color, track = Dream.Track, knob = true)
+        EdgeRing(fraction = { fraction }, color = color, track = Dream.Track, knob = true)
     }
 }
 
@@ -266,12 +269,17 @@ fun HoldPill(
 ) {
     val hold = rememberHoldProgress()
     val view = LocalView.current
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Box(
         modifier
             .width(148.dp)
             .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(container)
+            .drawBehind {
+                val w = size.width * hold.value.value
+                if (w > 0f) drawRect(fill, topLeft = Offset(if (rtl) size.width - w else 0f, 0f), size = Size(w, size.height))
+            }
             .holdToConfirm(
                 hold, durationMs,
                 onFilled = { view.performHapticFeedback(HapticFeedbackConstants.CONFIRM) },
@@ -279,13 +287,6 @@ fun HoldPill(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Box(
-            Modifier
-                .align(Alignment.CenterStart)
-                .fillMaxHeight()
-                .fillMaxWidth(hold.value.value)
-                .background(fill)
-        )
         Text(
             text,
             color = textColor,

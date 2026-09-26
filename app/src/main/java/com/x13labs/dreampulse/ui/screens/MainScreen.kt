@@ -109,7 +109,9 @@ private fun HomeScreen(
         return
     }
     val pager = rememberPagerState(pageCount = { 3 })
-    HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
+    // All three pages are light: compose them up front so the first swipe doesn't stall
+    // while the neighbouring page is built mid-gesture.
+    HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 2) { page ->
         when (page) {
             0 -> SetupScreen(viewModel, onEditDuration, onEditDeadline)
             1 -> HistoryScreen()
@@ -158,7 +160,7 @@ private fun SetupScreen(viewModel: MainViewModel, onEditDuration: () -> Unit, on
 
     Box(Modifier.fillMaxSize().background(Dream.Sky)) {
         StarField()
-        EdgeRing(fraction = duration / (MAX_HOURS * 60f), color = Dream.Moon, track = Dream.Track, knob = true)
+        EdgeRing(fraction = { duration / (MAX_HOURS * 60f) }, color = Dream.Moon, track = Dream.Track, knob = true)
         PageDots(0, 3, Modifier.align(Alignment.TopCenter).padding(top = 22.dp))
 
         // Content lives between the dots (top) and the edge button (bottom): the column's
