@@ -14,7 +14,7 @@
     <string name="waiting_title">Waiting for sleep</string>
     <string name="breathe_hint">Breathe with the ring</string>
     <string name="off_wrist">Watch is off your wrist</string>
-    <string name="latest_alarm">Latest alarm %1$s</string>
+    <string name="latest_alarm">Backup alarm %1$s</string>
     <string name="hold_to_stop">Hold to stop</string>
     <string name="asleep_since">Asleep since %1$s</string>
     <string name="smart_wake_from">Smart wake from %1$s</string>

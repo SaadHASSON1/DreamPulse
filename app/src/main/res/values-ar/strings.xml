@@ -13,7 +13,7 @@
     <string name="waiting_title">بانتظار النوم</string>
     <string name="breathe_hint">تنفّس مع الدائرة</string>
     <string name="off_wrist">الساعة ليست على معصمك</string>
-    <string name="latest_alarm">أقصى موعد %1$s</string>
+    <string name="latest_alarm">منبّه احتياطي %1$s</string>
     <string name="hold_to_stop">اضغط مطوّلاً للإيقاف</string>
     <string name="asleep_since">نائم منذ %1$s</string>
     <string name="smart_wake_from">استيقاظ ذكي من %1$s</string>
