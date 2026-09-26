@@ -83,7 +83,7 @@ private fun WaitingScreen(latestAlarm: Long, offWrist: Boolean, onStop: () -> Un
     Box(Modifier.fillMaxSize().background(Dream.Sky)) {
         StarField(alpha = 0.6f)
         Column(
-            Modifier.fillMaxSize().padding(top = 22.dp, bottom = 16.dp),
+            Modifier.fillMaxSize().padding(top = 22.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
@@ -143,7 +143,7 @@ private fun AsleepScreen(sleepStart: Long, wakeAt: Long, onStop: () -> Unit) {
             highlightFrom = windowFrom, highlightColor = Dream.DawnMid,
         )
         Column(
-            Modifier.fillMaxSize().padding(top = 34.dp, bottom = 16.dp),
+            Modifier.fillMaxSize().padding(top = 34.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.weight(1f))

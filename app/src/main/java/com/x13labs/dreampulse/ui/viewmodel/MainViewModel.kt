@@ -148,12 +148,9 @@ class MainViewModel @Inject constructor(
         if (isTrackingState.value) return
         Log.d("MainViewModel", "executeStartTracking() — launching service")
 
-        // Clear any stale state to ensure a completely fresh tracking session
-        viewModelScope.launch {
-            preferencesManager.saveSleepConfirmed(false)
-            preferencesManager.saveServiceStartTime(0L)
-            preferencesManager.saveTargetWakeTime(0L)
-        }
+        // No state clearing here: the service's fresh-start path resets every session field
+        // itself. Clearing from here raced with it and could wipe the backup wake time the
+        // service had just saved (then a reboot would not re-arm the alarm).
 
         // Vibration feedback
         val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator

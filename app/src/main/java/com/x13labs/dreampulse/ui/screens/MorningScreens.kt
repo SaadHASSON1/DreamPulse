@@ -75,10 +75,11 @@ fun AlarmScreen(onDismiss: () -> Unit) {
 
     Box(
         Modifier.fillMaxSize().background(bg)
-            .holdToConfirm(hold, durationMs = 1500) {
-                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                onDismiss()
-            }
+            .holdToConfirm(
+                hold, durationMs = 1500,
+                onFilled = { view.performHapticFeedback(HapticFeedbackConstants.CONFIRM) },
+                onConfirmed = onDismiss,
+            )
     ) {
         EdgeRing(
             fraction = hold.value.value, color = Dream.Sun, track = Color.Transparent,

@@ -215,7 +215,12 @@ fun EdgeDial(
     }
 }
 
-/** Press-and-hold state: holding animates 0 to 1; releasing early rewinds to 0. */
+/**
+ * Press-and-hold state: holding animates 0 to 1; releasing early rewinds to 0.
+ * The action fires on RELEASE after a full hold, never while the finger is still down:
+ * otherwise the screen changes under the finger and the lift lands as a tap on whatever
+ * replaced it (e.g. stop tracking, then the same touch hits Start).
+ */
 class HoldProgress internal constructor(val value: Animatable<Float, AnimationVector1D>)
 
 @Composable
@@ -224,6 +229,7 @@ fun rememberHoldProgress(): HoldProgress = remember { HoldProgress(Animatable(0f
 fun Modifier.holdToConfirm(
     hold: HoldProgress,
     durationMs: Int,
+    onFilled: () -> Unit = {},
     onConfirmed: () -> Unit,
 ): Modifier = this.then(
     Modifier.pointerInput(Unit) {
@@ -232,10 +238,13 @@ fun Modifier.holdToConfirm(
                 val a = hold.value
                 val job = launch {
                     a.animateTo(1f, tween(((1f - a.value) * durationMs).toInt(), easing = LinearEasing))
-                    onConfirmed()
+                    onFilled()   // e.g. a haptic "you can let go now"
                 }
-                tryAwaitRelease()
-                if (a.value < 1f) {
+                val released = tryAwaitRelease()
+                if (released && a.value >= 1f) {
+                    onConfirmed()
+                    launch { a.snapTo(0f) }
+                } else {
                     job.cancel()
                     launch { a.animateTo(0f, tween(250)) }
                 }
@@ -259,14 +268,15 @@ fun HoldPill(
     val view = LocalView.current
     Box(
         modifier
-            .width(128.dp)
-            .height(40.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .width(148.dp)
+            .height(44.dp)
+            .clip(RoundedCornerShape(22.dp))
             .background(container)
-            .holdToConfirm(hold, durationMs) {
-                view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                onConfirmed()
-            },
+            .holdToConfirm(
+                hold, durationMs,
+                onFilled = { view.performHapticFeedback(HapticFeedbackConstants.CONFIRM) },
+                onConfirmed = onConfirmed,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Box(
@@ -279,10 +289,11 @@ fun HoldPill(
         Text(
             text,
             color = textColor,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 10.dp),
         )
