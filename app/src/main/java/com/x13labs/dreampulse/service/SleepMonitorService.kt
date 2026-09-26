@@ -48,7 +48,12 @@ class SleepMonitorService : Service(), SensorEventListener {
     private var serviceStartTime: Long = 0
     private val hrWindow = mutableListOf<Float>()
     private var hrBaseline = 0f
-    private var lastMotionTime: Long = System.currentTimeMillis()
+    @Volatile private var lastMotionTime: Long = System.currentTimeMillis()
+
+    // On-wrist state from TYPE_LOW_LATENCY_OFFBODY_DETECT: null until the sensor reports
+    // (or if the watch has no such sensor), then true/false.
+    @Volatile private var isOnBody: Boolean? = null
+    @Volatile private var lastHeartRateTime = 0L
     @Volatile private var isSleepConfirmed = false
     private var motionSilenceCount = 0
     private var motionEvents = mutableListOf<Long>()
@@ -212,6 +217,7 @@ class SleepMonitorService : Service(), SensorEventListener {
         serviceScope.launch {
             healthServicesManager.heartRate.collectLatest { bpm ->
                 if (bpm > 30) {
+                    lastHeartRateTime = System.currentTimeMillis()
                     synchronized(hrWindow) {
                         hrWindow.add(bpm)
                         if (hrWindow.size > 30) hrWindow.removeAt(0)
@@ -235,6 +241,23 @@ class SleepMonitorService : Service(), SensorEventListener {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val accel = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         sensorManager?.registerListener(this, accel, SensorManager.SENSOR_DELAY_NORMAL)
+        // Wake-up, on-change sensor: reports the current state on registration, then only
+        // when the watch is put on / taken off, so it costs next to nothing.
+        sensorManager?.getDefaultSensor(Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)?.let {
+            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
+
+    /**
+     * A watch lying still on a table looks exactly like a sleeper to the motion heuristic,
+     * so detection only counts while the watch is worn. Prefer the off-body sensor; if it has
+     * not reported (or does not exist), fall back to "a heart rate was read recently" — the
+     * duty cycle measures every 5 minutes, and no pulse is read off-wrist.
+     */
+    private fun isWorn(now: Long): Boolean = when (isOnBody) {
+        true -> true
+        false -> false
+        null -> now - lastHeartRateTime < HR_FRESHNESS_MS
     }
 
     private fun confirmSleep(source: String, isSimulation: Boolean = false) {
@@ -309,6 +332,15 @@ class SleepMonitorService : Service(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT) {
+            val onBody = event.values[0] == 1.0f
+            if (onBody != isOnBody) Log.d("SleepMonitor", if (onBody) "Watch ON wrist" else "Watch OFF wrist — sleep detection paused")
+            isOnBody = onBody
+            healthServicesManager.updateOnBodyStatus(onBody)
+            // Putting the watch back on restarts the stillness timer from zero
+            if (onBody) lastMotionTime = System.currentTimeMillis()
+            return
+        }
         if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
             val magnitude = sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1] + event.values[2] * event.values[2]) - 9.81f
             val absMag = if (magnitude < 0) -magnitude else magnitude
@@ -331,6 +363,14 @@ class SleepMonitorService : Service(), SensorEventListener {
         if (isSleepConfirmed) return
         
         val now = System.currentTimeMillis()
+
+        // Not worn: pause detection by holding the stillness timer at zero. Only sleep while
+        // wearing the watch counts. (The backup alarm still covers the whole night.)
+        if (!isWorn(now)) {
+            lastMotionTime = now
+            return
+        }
+
         val timeSinceLastMotion = now - lastMotionTime
         val currentAvg = synchronized(hrWindow) { if (hrWindow.isNotEmpty()) hrWindow.average().toFloat() else 0f }
         
@@ -547,6 +587,8 @@ class SleepMonitorService : Service(), SensorEventListener {
         private const val ALARM_REQUEST_CODE = 1001
         private const val SMART_WINDOW_REQUEST_CODE = 1004
         private const val SMART_WINDOW_MS = 15 * 60 * 1000L
+        /** Longer than one HR duty cycle (90 s on / 3.5 min off). */
+        private const val HR_FRESHNESS_MS = 6 * 60 * 1000L
         /** Longest we expect falling asleep to take; also used by the heuristic's catch-all. */
         private const val MAX_SLEEP_LATENCY_MS = 60 * 60 * 1000L
         /** A recovered session whose wake time passed longer ago than this is considered over. */
