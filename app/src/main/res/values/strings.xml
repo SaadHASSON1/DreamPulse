@@ -50,6 +50,9 @@
     <string name="notif_perm_lost_text">Background sensor access was removed. Allow it again to track sleep.</string>
     <string name="channel_tracking">Sleep tracking</string>
     <string name="channel_alarms">Alarms</string>
+    <string name="hours">Hours</string>
+    <string name="minutes">Minutes</string>
+    <string name="tap_to_change">Tap to change</string>
     <string name="tile_label">DreamPulse</string>
     <string name="tile_description">Start sleep and see your alarm</string>
     <string name="tile_start">Start sleep</string>

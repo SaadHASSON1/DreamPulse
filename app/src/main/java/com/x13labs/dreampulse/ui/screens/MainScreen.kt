@@ -12,21 +12,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
@@ -38,45 +45,51 @@ import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.EdgeButton
 import androidx.wear.compose.material3.EdgeButtonSize
+import androidx.wear.compose.material3.PickerGroup
 import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.TimePicker
+import androidx.wear.compose.material3.rememberPickerState
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.x13labs.dreampulse.R
-import com.x13labs.dreampulse.ui.components.EdgeDial
+import com.x13labs.dreampulse.ui.components.EdgeRing
 import com.x13labs.dreampulse.ui.components.StarField
 import com.x13labs.dreampulse.ui.components.formatDuration
 import com.x13labs.dreampulse.ui.components.formatMinutesOfDay
 import com.x13labs.dreampulse.ui.theme.Dream
 import com.x13labs.dreampulse.ui.viewmodel.MainViewModel
 import com.x13labs.dreampulse.util.AppLanguage
-import kotlin.math.roundToInt
+import java.time.LocalTime
 
 private const val MIN_SLEEP = 5
-private const val MAX_SLEEP = 720
-private const val SLEEP_STEP = 5
-private const val DEADLINE_STEP = 15
+private const val MAX_HOURS = 12
+private const val MINUTE_STEP = 5
 
 /**
  * Navigation map
  *  home      pager [Setup | Settings] when idle, Tracking while a session runs
- *  deadline  pushed screen; swipe in from the left edge to go back
- *  language  pushed screen; swipe in from the left edge to go back
+ *  duration  wheel pickers for hours and minutes
+ *  deadline  system time picker for the wake-by time
+ *  language  language list
+ * Pushed screens go back with a swipe in from the left edge.
  */
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
     val nav = rememberSwipeDismissableNavController()
-    // No global time text: the setup dial runs along the top edge.
     AppScaffold(timeText = {}) {
         SwipeDismissableNavHost(navController = nav, startDestination = "home") {
             composable("home") {
                 HomeScreen(
                     viewModel,
+                    onEditDuration = { nav.navigate("duration") },
                     onEditDeadline = { nav.navigate("deadline") },
                     onLanguage = { nav.navigate("language") },
                 )
             }
+            composable("duration") { DurationScreen(viewModel, onDone = { nav.popBackStack() }) }
             composable("deadline") { DeadlineScreen(viewModel, onDone = { nav.popBackStack() }) }
             composable("language") { LanguageScreen(onDone = { nav.popBackStack() }) }
         }
@@ -84,7 +97,12 @@ fun MainScreen(viewModel: MainViewModel) {
 }
 
 @Composable
-private fun HomeScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit, onLanguage: () -> Unit) {
+private fun HomeScreen(
+    viewModel: MainViewModel,
+    onEditDuration: () -> Unit,
+    onEditDeadline: () -> Unit,
+    onLanguage: () -> Unit,
+) {
     val isTracking by viewModel.isTrackingState.collectAsState()
     if (isTracking) {
         TrackingScreen(viewModel)
@@ -93,7 +111,7 @@ private fun HomeScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit, onL
     val pager = rememberPagerState(pageCount = { 2 })
     HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
         when (page) {
-            0 -> SetupScreen(viewModel, onEditDeadline)
+            0 -> SetupScreen(viewModel, onEditDuration, onEditDeadline)
             else -> SettingsScreen(viewModel, onEditDeadline, onLanguage)
         }
     }
@@ -113,7 +131,7 @@ private fun PageDots(selected: Int, count: Int, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Chip(text: String, textColor: androidx.compose.ui.graphics.Color, background: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
+private fun Chip(text: String, textColor: Color, background: Color, onClick: () -> Unit) {
     Box(
         Modifier.clip(RoundedCornerShape(14.dp)).background(background)
             .clickable(onClick = onClick)
@@ -126,24 +144,20 @@ private fun Chip(text: String, textColor: androidx.compose.ui.graphics.Color, ba
 
 // Setup
 
+/**
+ * The ring only shows the chosen duration (no dragging: a thin ring under a finger was
+ * hard to control and fought with page swipes). Tap the number to change it.
+ */
 @Composable
-private fun SetupScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit) {
+private fun SetupScreen(viewModel: MainViewModel, onEditDuration: () -> Unit, onEditDeadline: () -> Unit) {
     val context = LocalContext.current
     val duration by viewModel.sleepDurationMinutes.collectAsState()
     val deadlineOn by viewModel.hardDeadlineEnabled.collectAsState()
     val deadlineMin by viewModel.hardDeadlineMinutes.collectAsState()
-    val range = (MAX_SLEEP - MIN_SLEEP).toFloat()
 
     Box(Modifier.fillMaxSize().background(Dream.Sky)) {
         StarField()
-        EdgeDial(
-            fraction = (duration - MIN_SLEEP) / range,
-            onDrag = { f ->
-                val raw = MIN_SLEEP + f * range
-                viewModel.setDuration(((raw / SLEEP_STEP).roundToInt() * SLEEP_STEP).coerceIn(MIN_SLEEP, MAX_SLEEP))
-            },
-            onRotaryStep = { step -> viewModel.setDuration((duration + step * SLEEP_STEP).coerceIn(MIN_SLEEP, MAX_SLEEP)) },
-        )
+        EdgeRing(fraction = duration / (MAX_HOURS * 60f), color = Dream.Moon, track = Dream.Track, knob = true)
         PageDots(0, 2, Modifier.align(Alignment.TopCenter).padding(top = 22.dp))
 
         // Content lives between the dots (top) and the edge button (bottom): the column's
@@ -153,8 +167,15 @@ private fun SetupScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(stringResource(R.string.sleep_goal), fontSize = 12.sp, color = Dream.Muted, maxLines = 1)
-            Text(formatDuration(duration), fontSize = 36.sp, fontWeight = FontWeight.Medium, color = Dream.MoonLight, maxLines = 1)
+            Column(
+                Modifier.clip(RoundedCornerShape(18.dp)).clickable(onClick = onEditDuration)
+                    .padding(horizontal = 14.dp, vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(stringResource(R.string.sleep_goal), fontSize = 12.sp, color = Dream.Muted, maxLines = 1)
+                Text(formatDuration(duration), fontSize = 36.sp, fontWeight = FontWeight.Medium, color = Dream.MoonLight, maxLines = 1)
+                Text(stringResource(R.string.tap_to_change), fontSize = 10.sp, color = Dream.MoonMid, maxLines = 1)
+            }
             Spacer(Modifier.height(4.dp))
             Chip(
                 text = if (deadlineOn) stringResource(R.string.wake_by, formatMinutesOfDay(context, deadlineMin))
@@ -176,55 +197,91 @@ private fun SetupScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit) {
     }
 }
 
-// Wake-by time
+// Duration: two wheels, like the watch's own timer and alarm apps
 
 @Composable
-private fun DeadlineScreen(viewModel: MainViewModel, onDone: () -> Unit) {
-    val context = LocalContext.current
-    val enabled by viewModel.hardDeadlineEnabled.collectAsState()
-    val minutes by viewModel.hardDeadlineMinutes.collectAsState()
+private fun DurationScreen(viewModel: MainViewModel, onDone: () -> Unit) {
+    val current = viewModel.sleepDurationMinutes.collectAsState().value
+    val hours = rememberPickerState(initialNumberOfOptions = MAX_HOURS + 1, initiallySelectedIndex = (current / 60).coerceIn(0, MAX_HOURS))
+    val minutes = rememberPickerState(initialNumberOfOptions = 60 / MINUTE_STEP, initiallySelectedIndex = (current % 60) / MINUTE_STEP)
+    var selected by remember { mutableIntStateOf(0) }
+    val hoursLabel = stringResource(R.string.hours)
+    val minutesLabel = stringResource(R.string.minutes)
 
     Box(Modifier.fillMaxSize().background(Dream.Sky)) {
-        EdgeDial(
-            fraction = minutes / 1440f,
-            onDrag = { f ->
-                viewModel.setHardDeadlineEnabled(true)
-                viewModel.setHardDeadlineMinutes(((f * 1440f / DEADLINE_STEP).roundToInt() * DEADLINE_STEP).coerceAtMost(1440 - DEADLINE_STEP))
-            },
-            onRotaryStep = { step ->
-                viewModel.setHardDeadlineEnabled(true)
-                viewModel.setHardDeadlineMinutes(minutes + step * DEADLINE_STEP)
-            },
-            color = if (enabled) Dream.Sun else Dream.Muted,
-        )
         Column(
-            Modifier.fillMaxSize().padding(top = 34.dp, bottom = 62.dp),
+            Modifier.fillMaxSize().padding(top = 26.dp, bottom = 58.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                stringResource(R.string.wake_by_label), fontSize = 12.sp, color = Dream.Muted,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 130.dp),
-            )
-            Text(
-                formatMinutesOfDay(context, minutes), fontSize = 34.sp, fontWeight = FontWeight.Medium,
-                color = if (enabled) Dream.SunLight else Dream.Muted, maxLines = 1,
-            )
+            Text(stringResource(R.string.sleep_goal), fontSize = 12.sp, color = Dream.Muted, maxLines = 1)
             Spacer(Modifier.height(4.dp))
-            Chip(
-                text = stringResource(if (enabled) R.string.on else R.string.off),
-                textColor = if (enabled) Dream.SunLight else Dream.Muted,
-                background = if (enabled) Dream.DawnMid else Dream.Track,
-                onClick = { viewModel.setHardDeadlineEnabled(!enabled) },
-            )
+            // Numbers read left-to-right (hours:minutes) in every language
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                PickerGroup(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    selectedPickerState = if (selected == 0) hours else minutes,
+                    autoCenter = false,
+                ) {
+                    PickerGroupItem(
+                        pickerState = hours,
+                        selected = selected == 0,
+                        onSelected = { selected = 0 },
+                        modifier = Modifier.width(64.dp),
+                        contentDescription = { "${hours.selectedOptionIndex} $hoursLabel" },
+                    ) { index, isSelected ->
+                        WheelNumber(index, isSelected)
+                    }
+                    Text(":", fontSize = 30.sp, color = Dream.MoonLight, modifier = Modifier.padding(horizontal = 2.dp))
+                    PickerGroupItem(
+                        pickerState = minutes,
+                        selected = selected == 1,
+                        onSelected = { selected = 1 },
+                        modifier = Modifier.width(64.dp),
+                        contentDescription = { "${minutes.selectedOptionIndex * MINUTE_STEP} $minutesLabel" },
+                    ) { index, isSelected ->
+                        WheelNumber(index * MINUTE_STEP, isSelected)
+                    }
+                }
+            }
         }
         EdgeButton(
-            onClick = onDone,
+            onClick = {
+                val total = hours.selectedOptionIndex * 60 + minutes.selectedOptionIndex * MINUTE_STEP
+                viewModel.setDuration(total.coerceAtLeast(MIN_SLEEP))
+                onDone()
+            },
             modifier = Modifier.align(Alignment.BottomCenter),
             buttonSize = EdgeButtonSize.Small,
             colors = ButtonDefaults.buttonColors(containerColor = Dream.MoonDeep, contentColor = Dream.MoonLight),
         ) { Text(stringResource(R.string.done), maxLines = 1) }
     }
+}
+
+@Composable
+private fun WheelNumber(value: Int, selected: Boolean) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Text(
+            String.format(java.util.Locale.ROOT, "%02d", value),
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (selected) Dream.MoonLight else Dream.Muted,
+        )
+    }
+}
+
+// Wake-by time: the standard system time picker (12/24 h follows the watch setting)
+
+@Composable
+private fun DeadlineScreen(viewModel: MainViewModel, onDone: () -> Unit) {
+    val minutes = viewModel.hardDeadlineMinutes.collectAsState().value
+    TimePicker(
+        initialTime = LocalTime.of(minutes / 60, minutes % 60),
+        onTimePicked = { t ->
+            viewModel.setHardDeadlineMinutes(t.hour * 60 + t.minute)
+            viewModel.setHardDeadlineEnabled(true)
+            onDone()
+        },
+    )
 }
 
 // Settings (second pager page)
@@ -253,9 +310,19 @@ private fun SettingsScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit,
                 )
             }
             item {
+                SwitchButton(
+                    checked = deadlineOn,
+                    onCheckedChange = { viewModel.setHardDeadlineEnabled(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    secondaryLabel = {
+                        Text(formatMinutesOfDay(context, deadlineMin), color = Dream.Moon, maxLines = 1)
+                    },
+                ) { Text(stringResource(R.string.wake_by_label), maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            }
+            item {
                 SettingRow(
                     label = stringResource(R.string.wake_by_label),
-                    value = if (deadlineOn) formatMinutesOfDay(context, deadlineMin) else stringResource(R.string.off),
+                    value = formatMinutesOfDay(context, deadlineMin),
                     onClick = onEditDeadline,
                 )
             }

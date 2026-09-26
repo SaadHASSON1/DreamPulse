@@ -49,6 +49,9 @@
     <string name="notif_perm_lost_text">أُزيل إذن الحساسات في الخلفية. اسمح به من جديد لتتبّع النوم.</string>
     <string name="channel_tracking">تتبّع النوم</string>
     <string name="channel_alarms">المنبّهات</string>
+    <string name="hours">ساعات</string>
+    <string name="minutes">دقائق</string>
+    <string name="tap_to_change">اضغط للتعديل</string>
     <string name="tile_description">ابدأ النوم وشاهد موعد المنبّه</string>
     <string name="tile_start">ابدأ النوم</string>
     <string name="tile_alarm">المنبّه</string>
