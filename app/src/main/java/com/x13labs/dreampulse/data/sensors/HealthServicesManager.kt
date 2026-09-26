@@ -38,7 +38,7 @@ class HealthServicesManager @Inject constructor(
     private val _isTracking = MutableStateFlow(false)
     val isTracking: StateFlow<Boolean> = _isTracking
 
-    private val _isOnBody = MutableStateFlow(false)
+    private val _isOnBody = MutableStateFlow(true)
     val isOnBody: StateFlow<Boolean> = _isOnBody
 
     private val _isSimulation = MutableStateFlow(false)
@@ -73,7 +73,7 @@ class HealthServicesManager @Inject constructor(
         _heartRate.value = 0f
         _sleepState.value = SleepState.UNKNOWN
         _isSimulation.value = false
-        _isOnBody.value = false
+        _isOnBody.value = true
     }
 
 

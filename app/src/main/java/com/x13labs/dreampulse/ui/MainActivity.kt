@@ -23,7 +23,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.x13labs.dreampulse.ui.screens.MainScreen
-import com.x13labs.dreampulse.ui.theme.SmartSleepTheme
+import com.x13labs.dreampulse.ui.theme.DreamTheme
 import com.x13labs.dreampulse.ui.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlin.math.sqrt
@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         heartRateSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_HEART_RATE)
 
         setContent {
-            SmartSleepTheme {
+            DreamTheme {
                 MainScreen(viewModel)
             }
         }
@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 // re-requesting in a loop, and send the user to the app's settings page.
                 Log.w("MainActivity", "Permissions still denied after request: $missingPermissions")
                 pendingStartTracking = false
-                Toast.makeText(this, "Allow sensor access (\"All the time\") to start tracking", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(com.x13labs.dreampulse.R.string.perm_denied), Toast.LENGTH_LONG).show()
                 try {
                     startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
                 } catch (e: Exception) {
@@ -226,9 +226,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
         try {
             val builder = android.app.AlertDialog.Builder(this)
-            builder.setTitle("Samsung Watch Setup")
-            builder.setMessage("To ensure the alarm fires, please add DreamPulse to 'Never sleeping apps'.\n\nSettings → Battery and device care → Battery → Background usage limits → Never sleeping apps")
-            builder.setPositiveButton("Open Settings") { _, _ ->
+            builder.setTitle(getString(com.x13labs.dreampulse.R.string.samsung_title))
+            builder.setMessage(getString(com.x13labs.dreampulse.R.string.samsung_body))
+            builder.setPositiveButton(getString(com.x13labs.dreampulse.R.string.perm_open)) { _, _ ->
                 try {
                     val intent = Intent("android.settings.APPLICATION_DETAILS_SETTINGS")
                     intent.data = Uri.parse("package:$packageName")

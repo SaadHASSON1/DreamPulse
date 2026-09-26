@@ -34,8 +34,8 @@ class SleepPassiveListenerService : PassiveListenerService() {
         val notificationManager = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         val notification = androidx.core.app.NotificationCompat.Builder(this, com.x13labs.dreampulse.util.NotificationHelper.TRACKING_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle("DreamPulse needs permission")
-            .setContentText("Background sensor permission lost. Please re-grant it to track sleep.")
+            .setContentTitle(getString(com.x13labs.dreampulse.R.string.notif_perm_lost_title))
+            .setContentText(getString(com.x13labs.dreampulse.R.string.notif_perm_lost_text))
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
             .build()
         notificationManager.notify(888, notification)

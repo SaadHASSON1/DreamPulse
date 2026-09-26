@@ -112,6 +112,23 @@ class PreferencesManager @Inject constructor(
         }
     }
 
+    // Last finished session, for the morning summary (sleepStartTime is kept separately)
+    private val LAST_SESSION_START_KEY = longPreferencesKey("last_session_start")
+    private val LAST_SCHEDULED_WAKE_KEY = longPreferencesKey("last_scheduled_wake")
+    private val LAST_WAKE_KEY = longPreferencesKey("last_wake")
+
+    val lastSessionStart: Flow<Long> = context.dataStore.data.map { it[LAST_SESSION_START_KEY] ?: 0L }
+    val lastScheduledWake: Flow<Long> = context.dataStore.data.map { it[LAST_SCHEDULED_WAKE_KEY] ?: 0L }
+    val lastWake: Flow<Long> = context.dataStore.data.map { it[LAST_WAKE_KEY] ?: 0L }
+
+    suspend fun saveLastSession(sessionStart: Long, scheduledWake: Long, wake: Long) {
+        context.dataStore.edit {
+            it[LAST_SESSION_START_KEY] = sessionStart
+            it[LAST_SCHEDULED_WAKE_KEY] = scheduledWake
+            it[LAST_WAKE_KEY] = wake
+        }
+    }
+
     // Hard Deadline ("Must wake by" feature)
     private val HARD_DEADLINE_ENABLED_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("hard_deadline_enabled")
     private val HARD_DEADLINE_MINUTES_KEY = intPreferencesKey("hard_deadline_minutes")

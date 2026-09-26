@@ -31,6 +31,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="DreamPulse"
         android:supportsRtl="true"
+        android:localeConfig="@xml/locales_config"
         android:theme="@android:style/Theme.DeviceDefault">
 
         <!-- Wear OS standalone meta-data -->
@@ -89,6 +90,21 @@
                 <action android:name="com.x13labs.dreampulse.ACTION_ALARM" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name=".tile.SleepTileService"
+            android:exported="true"
+            android:label="@string/tile_label"
+            android:description="@string/tile_description"
+            android:icon="@drawable/ic_moon"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_preview" />
+        </service>
 
         <receiver
             android:name=".receiver.HeartbeatReceiver"

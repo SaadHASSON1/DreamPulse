@@ -92,14 +92,10 @@ class SleepMonitorService : Service(), SensorEventListener {
             return START_NOT_STICKY
         }
 
-        val initialNotification = NotificationCompat.Builder(this, NotificationHelper.TRACKING_CHANNEL_ID)
-            .setSmallIcon(com.x13labs.dreampulse.R.mipmap.ic_launcher)
-            .setContentTitle("DreamPulse: Monitoring")
-            .setContentText("Signals active. Rest well 🌙")
-            .setOngoing(true)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+        val initialNotification = notificationHelper.buildTracking(
+            getString(com.x13labs.dreampulse.R.string.notif_monitoring),
+            getString(com.x13labs.dreampulse.R.string.notif_monitoring_text),
+        )
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             startForeground(
@@ -134,6 +130,8 @@ class SleepMonitorService : Service(), SensorEventListener {
                 preferencesManager.saveServiceStartTime(serviceStartTime)
                 preferencesManager.saveSleepConfirmed(false)
                 preferencesManager.setTrackingActive(true)
+                // A sleep start left over from the previous night must not leak into this one
+                sleepRepository.saveSleepStartTime(0L)
                 healthServicesManager.resetStates()
                 lastMotionTime = System.currentTimeMillis()
 
@@ -173,6 +171,7 @@ class SleepMonitorService : Service(), SensorEventListener {
             }
 
             HeartbeatReceiver.schedule(this@SleepMonitorService)
+            com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(this@SleepMonitorService)
 
             if (!isInitialized) {
                 isInitialized = true
@@ -306,13 +305,11 @@ class SleepMonitorService : Service(), SensorEventListener {
             val confirmTimeStr = java.text.SimpleDateFormat("HH:mm").format(java.util.Date(now))
             sleepRepository.saveSleepSummary("$confirmTimeStr, $timeStr")
             
-            val notification = NotificationCompat.Builder(this@SleepMonitorService, NotificationHelper.TRACKING_CHANNEL_ID)
-                .setSmallIcon(com.x13labs.dreampulse.R.mipmap.ic_launcher)
-                .setContentTitle("DreamPulse: Alarm Set")
-                .setContentText("Sleep detected. Waking you at $timeStr")
-                .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_MAX)
-                .build()
+            val notification = notificationHelper.buildTracking(
+                getString(com.x13labs.dreampulse.R.string.notif_alarm_set, timeStr),
+                getString(com.x13labs.dreampulse.R.string.notif_alarm_set_text, timeStr),
+            )
+            com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(this@SleepMonitorService)
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             nm.notify(NotificationHelper.NOTIFICATION_ID, notification)
             

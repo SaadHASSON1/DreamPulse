@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.x13labs.dreampulse"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.x13labs.dreampulse"
@@ -43,12 +43,12 @@ android {
 
 dependencies {
     // Wear OS
-    implementation("androidx.wear.compose:compose-material:1.6.1")
-    implementation("androidx.wear.compose:compose-foundation:1.6.1")
-    implementation("androidx.wear.compose:compose-navigation:1.6.1")
+    implementation("androidx.wear.compose:compose-material3:1.7.0")
+    implementation("androidx.wear.compose:compose-foundation:1.7.0")
+    implementation("androidx.wear.compose:compose-navigation:1.7.0")
 
     // Ongoing Activity ← الإضافة الجديدة
-    implementation("androidx.wear:wear-ongoing:1.0.0")
+    implementation("androidx.wear:wear-ongoing:1.1.0")
 
     // Health Services
     implementation("androidx.health:health-services-client:1.1.0-rc02")
@@ -64,8 +64,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.11.0")
 
     // Wear OS Tiles
-    implementation("androidx.wear.tiles:tiles:1.6.0")
-    implementation("androidx.wear.protolayout:protolayout:1.4.0")
-    implementation("androidx.wear.protolayout:protolayout-material:1.4.0")
-    implementation("androidx.wear.protolayout:protolayout-expression:1.4.0")
+    implementation("androidx.wear.tiles:tiles:1.6.2")
+    implementation("androidx.wear.protolayout:protolayout:1.4.2")
+    implementation("androidx.wear.protolayout:protolayout-expression:1.4.2")
 }

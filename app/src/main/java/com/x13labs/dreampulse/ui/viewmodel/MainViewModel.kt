@@ -61,6 +61,20 @@ class MainViewModel @Inject constructor(
     private val _currentHeartRate = MutableStateFlow(0f)
     val currentHeartRate: StateFlow<Float> = _currentHeartRate
 
+    /** What the tracking screen shows; read straight from the persisted session. */
+    data class TrackingInfo(
+        val sleepConfirmed: Boolean = false,
+        val sleepStartTime: Long = 0L,
+        val targetWakeTime: Long = 0L,
+    )
+
+    val trackingInfo: StateFlow<TrackingInfo> = kotlinx.coroutines.flow.combine(
+        preferencesManager.isSleepConfirmed,
+        preferencesManager.sleepStartTime,
+        preferencesManager.targetWakeTime,
+    ) { confirmed, sleepStart, target -> TrackingInfo(confirmed, sleepStart, target) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TrackingInfo())
+
     // Hard Deadline ("Must wake by" feature)
     private val _hardDeadlineEnabled = MutableStateFlow(false)
     val hardDeadlineEnabled: StateFlow<Boolean> = _hardDeadlineEnabled
@@ -184,6 +198,7 @@ class MainViewModel @Inject constructor(
         healthServicesManager.updateSleepState(SleepState.UNKNOWN)
         healthServicesManager.setSimulation(false)
         com.x13labs.dreampulse.receiver.HeartbeatReceiver.cancel(context)
+        com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(context)
         
         viewModelScope.launch {
             preferencesManager.saveSleepConfirmed(false)
@@ -233,6 +248,17 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             preferencesManager.saveHardDeadlineEnabled(newValue)
         }
+    }
+
+    fun setHardDeadlineEnabled(enabled: Boolean) {
+        _hardDeadlineEnabled.value = enabled
+        viewModelScope.launch { preferencesManager.saveHardDeadlineEnabled(enabled) }
+    }
+
+    fun setHardDeadlineMinutes(minutes: Int) {
+        val v = ((minutes % 1440) + 1440) % 1440
+        _hardDeadlineMinutes.value = v
+        viewModelScope.launch { preferencesManager.saveHardDeadlineMinutes(v) }
     }
 
     fun adjustHardDeadline(deltaMinutes: Int) {

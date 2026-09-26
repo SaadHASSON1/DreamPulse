@@ -28,6 +28,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -57,7 +58,7 @@ class AlarmService : Service() {
         // 2. تأكد من وجود قناة الإشعار
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = android.app.NotificationChannel(
-                NotificationHelper.ALARM_CHANNEL_ID, "Sleep Alarms",
+                NotificationHelper.ALARM_CHANNEL_ID, getString(R.string.channel_alarms),
                 android.app.NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 setSound(null, null)
@@ -83,13 +84,26 @@ class AlarmService : Service() {
         )
 
         // 4. ابنِ الإشعار — لون أحمر زاهي للـ chip
+        val stopPendingIntent = PendingIntent.getActivity(
+            this, 2002,
+            Intent(this, AlarmActivity::class.java).apply {
+                putExtra(AlarmActivity.EXTRA_ACTION, AlarmActivity.ACTION_DISMISS)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val alarmColor = android.graphics.Color.parseColor("#FF5252") // أحمر فاقع
         val notificationBuilder = NotificationCompat.Builder(this, NotificationHelper.ALARM_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_alarm_chip)
             .setColor(alarmColor)                          // لون الـ chip على watch face
             .setColorized(true)                            // يطبّق اللون على الخلفية
-            .setContentTitle("🔔 DreamPulse — WAKE UP!")
-            .setContentText("اضغط لفتح شاشة المنبه")
+            .setContentTitle(getString(R.string.notif_wake_up))
+            .setContentText(getString(R.string.notif_tap_to_open))
+            // Primary action: on watches with a double-pinch gesture this is what it triggers
+            .addAction(
+                NotificationCompat.Action.Builder(R.drawable.ic_alarm_chip, getString(R.string.stop), stopPendingIntent).build()
+            )
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
@@ -100,7 +114,7 @@ class AlarmService : Service() {
 
         // 5. Ongoing Activity chip — أوضح وأكبر
         val alarmStatusText = Status.forPart(
-            Status.TextPart("🔔 استيقظ! اضغط هنا")
+            Status.TextPart(getString(R.string.notif_wake_up))
         )
 
         val ongoingActivity = OngoingActivity.Builder(
@@ -196,11 +210,18 @@ class AlarmService : Service() {
         stopService(Intent(this, SleepMonitorService::class.java))
         sleepRepository.setTracking(false)
         serviceScope.launch {
-            // sleepStartTime is kept on purpose: the morning summary screen needs it.
+            // Keep what the morning summary needs before the session fields are cleared
+            // (sleepStartTime itself is kept until the next session starts).
+            preferencesManager.saveLastSession(
+                sessionStart = preferencesManager.serviceStartTime.first(),
+                scheduledWake = preferencesManager.targetWakeTime.first(),
+                wake = System.currentTimeMillis(),
+            )
             preferencesManager.setTrackingActive(false)
             preferencesManager.saveSleepConfirmed(false)
             preferencesManager.saveServiceStartTime(0L)
             preferencesManager.saveTargetWakeTime(0L)
+            com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(this@AlarmService)
         }
     }
 
