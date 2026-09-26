@@ -570,13 +570,17 @@ fun MonitoringScreen(
                 Text(text = "STOP", fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             
-            Button(
-                onClick = { viewModel.simulateSleep() },
-                modifier = Modifier.size(38.dp),
-                colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color.White.copy(alpha = 0.1f)),
-                shape = CircleShape
-            ) {
-                Text(text = "SM", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            // "SM" fakes sleep detection — a testing tool, only in debug builds
+            val isDebugBuild = (LocalContext.current.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            if (isDebugBuild) {
+                Button(
+                    onClick = { viewModel.simulateSleep() },
+                    modifier = Modifier.size(38.dp),
+                    colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color.White.copy(alpha = 0.1f)),
+                    shape = CircleShape
+                ) {
+                    Text(text = "SM", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 

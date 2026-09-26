@@ -20,8 +20,25 @@ import androidx.wear.ongoing.Status
 import com.x13labs.dreampulse.ui.AlarmActivity
 import com.x13labs.dreampulse.util.NotificationHelper
 import com.x13labs.dreampulse.R
+import com.x13labs.dreampulse.data.local.PreferencesManager
+import com.x13labs.dreampulse.data.repository.SleepRepository
+import com.x13labs.dreampulse.receiver.HeartbeatReceiver
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class AlarmService : Service() {
+
+    @Inject lateinit var preferencesManager: PreferencesManager
+    @Inject lateinit var sleepRepository: SleepRepository
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var sessionEnded = false
 
     private var vibrator: Vibrator? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -124,6 +141,11 @@ class AlarmService : Service() {
             Log.e("AlarmService", "startActivity failed: ${e.message}", e)
         }
 
+        // 7b. The alarm is ringing: the session is over. End it now instead of waiting for the
+        // user to dismiss, otherwise a heartbeat or reboot would find an "active" session whose
+        // wake time has passed and re-arm the alarm (phantom alarms every 15 min).
+        endSession()
+
         // 8. Auto-stop بعد 10 دقائق
         Handler(Looper.getMainLooper()).postDelayed({
             stopSelf()
@@ -163,7 +185,23 @@ class AlarmService : Service() {
             Log.e("AlarmService", "Vibration error", e)
         }
 
-        return START_STICKY
+        // Never restart on our own: a system restart would ring the alarm again from scratch.
+        return START_NOT_STICKY
+    }
+
+    private fun endSession() {
+        if (sessionEnded) return
+        sessionEnded = true
+        HeartbeatReceiver.cancel(this)
+        stopService(Intent(this, SleepMonitorService::class.java))
+        sleepRepository.setTracking(false)
+        serviceScope.launch {
+            // sleepStartTime is kept on purpose: the morning summary screen needs it.
+            preferencesManager.setTrackingActive(false)
+            preferencesManager.saveSleepConfirmed(false)
+            preferencesManager.saveServiceStartTime(0L)
+            preferencesManager.saveTargetWakeTime(0L)
+        }
     }
 
     override fun onDestroy() {
@@ -175,6 +213,7 @@ class AlarmService : Service() {
             mediaPlayer?.stop()
             mediaPlayer?.release()
         } catch (e: Exception) { }
+        serviceScope.cancel()
         super.onDestroy()
     }
 

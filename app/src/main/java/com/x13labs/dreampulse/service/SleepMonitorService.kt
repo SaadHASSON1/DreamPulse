@@ -14,6 +14,7 @@ import android.util.Log
 import com.x13labs.dreampulse.data.repository.SleepRepository
 import com.x13labs.dreampulse.domain.model.SleepState
 import com.x13labs.dreampulse.receiver.AlarmReceiver
+import com.x13labs.dreampulse.receiver.HeartbeatReceiver
 import com.x13labs.dreampulse.util.NotificationHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -48,7 +49,7 @@ class SleepMonitorService : Service(), SensorEventListener {
     private val hrWindow = mutableListOf<Float>()
     private var hrBaseline = 0f
     private var lastMotionTime: Long = System.currentTimeMillis()
-    private var isSleepConfirmed = false
+    @Volatile private var isSleepConfirmed = false
     private var motionSilenceCount = 0
     private var motionEvents = mutableListOf<Long>()
     private var isInitialized = false
@@ -72,6 +73,7 @@ class SleepMonitorService : Service(), SensorEventListener {
         
         if (action == ACTION_STOP_MONITORING) {
             stoppedByUser = true
+            HeartbeatReceiver.cancel(this)
             sensorManager?.unregisterListener(this)
             healthServicesManager.stopPassiveSleepMonitoring()
             cancelAlarm()
@@ -104,50 +106,67 @@ class SleepMonitorService : Service(), SensorEventListener {
             startForeground(NotificationHelper.NOTIFICATION_ID, initialNotification)
         }
 
-        sleepDurationMillis = intent?.getLongExtra(EXTRA_SLEEP_DURATION, 480 * 60 * 1000L) ?: 480 * 60 * 1000L
         val isFreshStart = intent?.getBooleanExtra(EXTRA_FRESH_START, false) ?: false
 
-        serviceScope.launch {
-            val savedConfirmed = preferencesManager.isSleepConfirmed.first()
-            val savedStartTime = preferencesManager.serviceStartTime.first()
-            val targetWakeTime = preferencesManager.targetWakeTime.first()
+        // Heartbeat ping to an instance that is already running: startForeground above is all
+        // that is needed. Re-reading persisted state here could overwrite in-memory state that
+        // has not been written to DataStore yet (e.g. a sleep confirmation in progress).
+        if (isInitialized && !isFreshStart) {
+            return START_STICKY
+        }
 
-            if (!isFreshStart && savedStartTime > 0) {
-                // Recovery or Heartbeat Ping
-                serviceStartTime = savedStartTime
-                isSleepConfirmed = savedConfirmed
-                sleepRepository.setTracking(true)
-                
-                if (savedConfirmed) {
-                    scheduleAlarmsInternal(targetWakeTime)
-                }
-            } else {
+        serviceScope.launch {
+            val savedStartTime = preferencesManager.serviceStartTime.first()
+
+            if (isFreshStart) {
                 // Fresh start from UI
+                sleepDurationMillis = intent?.getLongExtra(EXTRA_SLEEP_DURATION, 0L)?.takeIf { it > 0 }
+                    ?: (preferencesManager.sleepDuration.first() * 60 * 1000L)
                 serviceStartTime = System.currentTimeMillis()
                 isSleepConfirmed = false
                 preferencesManager.saveServiceStartTime(serviceStartTime)
                 preferencesManager.saveSleepConfirmed(false)
+                preferencesManager.setTrackingActive(true)
                 healthServicesManager.resetStates()
                 lastMotionTime = System.currentTimeMillis()
-                
-                // Ultimate Fail-Safe: Pre-schedule Hard Deadline immediately if enabled
-                val deadlineEnabled = preferencesManager.hardDeadlineEnabled.first()
-                if (deadlineEnabled) {
-                    val deadlineMinutes = preferencesManager.hardDeadlineMinutes.first()
-                    val cal = java.util.Calendar.getInstance().apply {
-                        set(java.util.Calendar.HOUR_OF_DAY, deadlineMinutes / 60)
-                        set(java.util.Calendar.MINUTE, deadlineMinutes % 60)
-                        set(java.util.Calendar.SECOND, 0)
-                        set(java.util.Calendar.MILLISECOND, 0)
-                    }
-                    if (cal.timeInMillis <= System.currentTimeMillis()) {
-                        cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
-                    }
-                    Log.d("SleepMonitor", "Pre-scheduling Hard Deadline as fail-safe: ${java.text.SimpleDateFormat("HH:mm").format(cal.time)}")
-                    scheduleAlarmsInternal(cal.timeInMillis)
+
+                // Safe Mode: schedule a backup alarm right now, so the user still wakes up even
+                // if sleep is never detected or this service is killed and never comes back.
+                // Budget = requested duration + maximum sleep latency; the Hard Deadline wins
+                // if it is earlier. confirmSleep() later replaces it with the real wake time.
+                var backupTime = serviceStartTime + sleepDurationMillis + MAX_SLEEP_LATENCY_MS
+                hardDeadlineAfter(serviceStartTime)?.let { if (it < backupTime) backupTime = it }
+                Log.d("SleepMonitor", "Backup alarm: ${java.text.SimpleDateFormat("HH:mm").format(java.util.Date(backupTime))}")
+                preferencesManager.saveTargetWakeTime(backupTime)
+                scheduleAlarmsInternal(backupTime)
+            } else if (savedStartTime > 0) {
+                // Recovery: sticky restart by the system, heartbeat, or boot.
+                // The intent may be null here, so everything comes from DataStore.
+                val targetWakeTime = preferencesManager.targetWakeTime.first()
+                if (targetWakeTime > 0 && System.currentTimeMillis() - targetWakeTime > STALE_SESSION_MS) {
+                    Log.w("SleepMonitor", "Session ended long ago — clearing instead of re-arming the alarm")
+                    clearSession()
+                    stopSelf()
+                    return@launch
                 }
+                sleepDurationMillis = preferencesManager.sleepDuration.first() * 60 * 1000L
+                serviceStartTime = savedStartTime
+                isSleepConfirmed = preferencesManager.isSleepConfirmed.first()
+                sleepRepository.setTracking(true)
+
+                // Alarms do not survive a reboot — re-arm whatever was scheduled (backup or real).
+                if (targetWakeTime > 0) {
+                    scheduleAlarmsInternal(targetWakeTime)
+                }
+            } else {
+                // Restarted with no session to resume (e.g. sticky restart after it ended)
+                Log.d("SleepMonitor", "No active session — stopping")
+                stopSelf()
+                return@launch
             }
-            
+
+            HeartbeatReceiver.schedule(this@SleepMonitorService)
+
             if (!isInitialized) {
                 isInitialized = true
                 try {
@@ -187,8 +206,10 @@ class SleepMonitorService : Service(), SensorEventListener {
         serviceScope.launch {
             healthServicesManager.heartRate.collectLatest { bpm ->
                 if (bpm > 30) {
-                    hrWindow.add(bpm)
-                    if (hrWindow.size > 30) hrWindow.removeAt(0)
+                    synchronized(hrWindow) {
+                        hrWindow.add(bpm)
+                        if (hrWindow.size > 30) hrWindow.removeAt(0)
+                    }
                 }
             }
         }
@@ -242,20 +263,8 @@ class SleepMonitorService : Service(), SensorEventListener {
         serviceScope.launch {
             // Hard Deadline: Use whichever comes first — duration-based or deadline
             var targetWakeTime = baseTargetWakeTime
-            val deadlineEnabled = preferencesManager.hardDeadlineEnabled.first()
-            if (deadlineEnabled) {
-                val deadlineMinutes = preferencesManager.hardDeadlineMinutes.first()
-                val cal = java.util.Calendar.getInstance().apply {
-                    set(java.util.Calendar.HOUR_OF_DAY, deadlineMinutes / 60)
-                    set(java.util.Calendar.MINUTE, deadlineMinutes % 60)
-                    set(java.util.Calendar.SECOND, 0)
-                    set(java.util.Calendar.MILLISECOND, 0)
-                }
-                // If deadline already passed today, use tomorrow
-                if (cal.timeInMillis <= now) {
-                    cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
-                }
-                val deadlineTimestamp = cal.timeInMillis
+            val deadlineTimestamp = hardDeadlineAfter(serviceStartTime)
+            if (deadlineTimestamp != null) {
                 if (deadlineTimestamp < targetWakeTime) {
                     targetWakeTime = deadlineTimestamp
                     Log.d("SleepMonitor", "Hard deadline active — waking at ${java.text.SimpleDateFormat("HH:mm").format(java.util.Date(deadlineTimestamp))} instead of ${java.text.SimpleDateFormat("HH:mm").format(java.util.Date(baseTargetWakeTime))}")
@@ -317,10 +326,10 @@ class SleepMonitorService : Service(), SensorEventListener {
         
         val now = System.currentTimeMillis()
         val timeSinceLastMotion = now - lastMotionTime
-        val currentAvg = if (hrWindow.isNotEmpty()) hrWindow.average().toFloat() else 0f
+        val currentAvg = synchronized(hrWindow) { if (hrWindow.isNotEmpty()) hrWindow.average().toFloat() else 0f }
         
-        if (hrBaseline == 0f && hrWindow.isNotEmpty() && (now - serviceStartTime > 5 * 60 * 1000L)) {
-            hrBaseline = hrWindow.average().toFloat()
+        if (hrBaseline == 0f && currentAvg > 0f && (now - serviceStartTime > 5 * 60 * 1000L)) {
+            hrBaseline = currentAvg
         }
 
         // 1. ABSOLUTE MOTION TIMEOUT: 10 minutes of NO movement
@@ -397,6 +406,36 @@ class SleepMonitorService : Service(), SensorEventListener {
         alarmManager.cancel(pendingIntent)
     }
 
+    /**
+     * Next occurrence of the user's Hard Deadline after [from], or null if it is disabled.
+     * Anchored on the session start (not "now") so a confirmation after midnight still
+     * resolves to the same morning instead of jumping a day ahead.
+     */
+    private suspend fun hardDeadlineAfter(from: Long): Long? {
+        if (!preferencesManager.hardDeadlineEnabled.first()) return null
+        val deadlineMinutes = preferencesManager.hardDeadlineMinutes.first()
+        val cal = java.util.Calendar.getInstance().apply {
+            timeInMillis = from
+            set(java.util.Calendar.HOUR_OF_DAY, deadlineMinutes / 60)
+            set(java.util.Calendar.MINUTE, deadlineMinutes % 60)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        if (cal.timeInMillis <= from) {
+            cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+        }
+        return cal.timeInMillis
+    }
+
+    private suspend fun clearSession() {
+        HeartbeatReceiver.cancel(this)
+        sleepRepository.setTracking(false)
+        preferencesManager.setTrackingActive(false)
+        preferencesManager.saveSleepConfirmed(false)
+        preferencesManager.saveServiceStartTime(0L)
+        preferencesManager.saveTargetWakeTime(0L)
+    }
+
     private fun startHeartRateDutyCycle() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         
@@ -425,7 +464,7 @@ class SleepMonitorService : Service(), SensorEventListener {
     override fun onDestroy() {
         // Bug #6 fix: Only release resources, do NOT clear tracking state.
         // Tracking state should only be cleared by explicit user action (ACTION_STOP_MONITORING).
-        // This allows HeartbeatWorker to revive the service if the system killed it.
+        // This allows HeartbeatReceiver to revive the service if the system killed it.
         
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
@@ -450,5 +489,9 @@ class SleepMonitorService : Service(), SensorEventListener {
         const val ACTION_STOP_MONITORING = "com.x13labs.dreampulse.ACTION_STOP_MONITORING"
         const val ACTION_SIMULATE_SLEEP = "com.x13labs.dreampulse.ACTION_SIMULATE_SLEEP"
         private const val ALARM_REQUEST_CODE = 1001
+        /** Longest we expect falling asleep to take; also used by the heuristic's catch-all. */
+        private const val MAX_SLEEP_LATENCY_MS = 60 * 60 * 1000L
+        /** A recovered session whose wake time passed longer ago than this is considered over. */
+        private const val STALE_SESSION_MS = 2 * 60 * 60 * 1000L
     }
 }

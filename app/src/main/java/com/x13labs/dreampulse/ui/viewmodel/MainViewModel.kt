@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -68,6 +69,13 @@ class MainViewModel @Inject constructor(
     val hardDeadlineMinutes: StateFlow<Int> = _hardDeadlineMinutes
 
     init {
+        // The in-memory tracking flag is lost when the process dies; restore it from the
+        // persisted session so reopening the app shows the monitoring screen, not START.
+        viewModelScope.launch {
+            if (preferencesManager.isTrackingActive.first() && preferencesManager.serviceStartTime.first() > 0) {
+                healthServicesManager.setTracking(true)
+            }
+        }
         viewModelScope.launch {
             preferencesManager.sleepDuration.collectLatest {
                 _sleepDurationMinutes.value = it
@@ -155,15 +163,9 @@ class MainViewModel @Inject constructor(
             sleepRepository.setTracking(true)
             // NOTE: Don't call startMonitoring() here — the Service handles it in onStartCommand()
             Log.d("MainViewModel", "Service started — tracking = true")
-            
-            val workRequest = androidx.work.PeriodicWorkRequestBuilder<com.x13labs.dreampulse.worker.SleepHeartbeatWorker>(
-                15, java.util.concurrent.TimeUnit.MINUTES
-            ).build()
-            androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                "SleepHeartbeat",
-                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
-                workRequest
-            )
+            // The service schedules its own HeartbeatReceiver. Drop the periodic work left
+            // behind by older versions (its worker class no longer exists).
+            androidx.work.WorkManager.getInstance(context).cancelUniqueWork("SleepHeartbeat")
         } catch (e: Exception) {
             Log.e("MainViewModel", "Failed to start service", e)
         }
@@ -181,7 +183,7 @@ class MainViewModel @Inject constructor(
         sleepRepository.setTracking(false)
         healthServicesManager.updateSleepState(SleepState.UNKNOWN)
         healthServicesManager.setSimulation(false)
-        androidx.work.WorkManager.getInstance(context).cancelUniqueWork("SleepHeartbeat")
+        com.x13labs.dreampulse.receiver.HeartbeatReceiver.cancel(context)
         
         viewModelScope.launch {
             preferencesManager.saveSleepConfirmed(false)
