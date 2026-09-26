@@ -111,7 +111,9 @@ class SleepMonitorService : Service(), SensorEventListener {
         // Heartbeat ping to an instance that is already running: startForeground above is all
         // that is needed. Re-reading persisted state here could overwrite in-memory state that
         // has not been written to DataStore yet (e.g. a sleep confirmation in progress).
+        val opensSmartWindow = action == ACTION_SMART_WINDOW
         if (isInitialized && !isFreshStart) {
+            if (opensSmartWindow) openSmartWindow()
             return START_STICKY
         }
 
@@ -188,6 +190,10 @@ class SleepMonitorService : Service(), SensorEventListener {
                     Log.e("SleepMonitor", "Start failed", e)
                 }
             }
+
+            // The smart-window alarm revived a killed service: recovery above restored the
+            // session, now open the window.
+            if (opensSmartWindow) openSmartWindow()
         }
 
         return START_STICKY
@@ -363,8 +369,8 @@ class SleepMonitorService : Service(), SensorEventListener {
         }, 2000)
     }
 
-    private var isSmartWindowActive = false
-    private var smartWindowJob: kotlinx.coroutines.Job? = null
+    @Volatile private var isSmartWindowActive = false
+    private var smartWakeLock: PowerManager.WakeLock? = null
 
     private fun scheduleAlarmsInternal(targetTime: Long) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -380,15 +386,21 @@ class SleepMonitorService : Service(), SensorEventListener {
 
             // Smart Wake: Only activate for durations >= 30 minutes.
             // For short durations (testing/SM), skip smart wake — the alarm fires on its own.
+            //
+            // The window is opened by an exact alarm, not a coroutine delay(): during the night
+            // the CPU deep-sleeps, the monotonic clock behind delay() stops, and the window
+            // would open late or never. The alarm also revives the service if it was killed.
+            isSmartWindowActive = false
+            smartWindowTime = safeTargetTime
+            val smartWindowIntent = smartWindowPendingIntent()
+            alarmManager.cancel(smartWindowIntent)
             val timeUntilAlarm = safeTargetTime - System.currentTimeMillis()
             if (timeUntilAlarm >= 30 * 60 * 1000L) {
-                smartWindowJob?.cancel()
-                smartWindowJob = serviceScope.launch {
-                    val delayTime = timeUntilAlarm - 15 * 60 * 1000L
-                    delay(delayTime)
-                    isSmartWindowActive = true
-                    Log.d("SleepMonitor", "Smart wake window ACTIVE")
-                }
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    safeTargetTime - SMART_WINDOW_MS,
+                    smartWindowIntent
+                )
             } else {
                 Log.d("SleepMonitor", "Duration < 30min — Smart Wake disabled, alarm will fire at scheduled time")
             }
@@ -397,10 +409,50 @@ class SleepMonitorService : Service(), SensorEventListener {
         }
     }
 
+    private var smartWindowTime = 0L
+
+    private fun smartWindowPendingIntent(): PendingIntent {
+        val intent = Intent(this, SleepMonitorService::class.java).apply { action = ACTION_SMART_WINDOW }
+        return PendingIntent.getForegroundService(
+            this, SMART_WINDOW_REQUEST_CODE, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    /**
+     * Last [SMART_WINDOW_MS] before the alarm: keep the CPU awake and listen to the
+     * accelerometer, so a light-sleep movement triggers the alarm early.
+     */
+    private fun openSmartWindow() {
+        if (!isSleepConfirmed || isSmartWindowActive) return
+        val remaining = smartWindowTime - System.currentTimeMillis()
+        if (remaining <= 0) return
+        Log.d("SleepMonitor", "Smart wake window ACTIVE (${remaining / 60000} min left)")
+
+        // Hold the CPU until just after the scheduled alarm; without it the (non-wakeup)
+        // accelerometer stops delivering events as soon as the watch dozes.
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        smartWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DreamPulse:SmartWake").apply {
+            setReferenceCounted(false)
+            acquire(remaining + 60 * 1000L)
+        }
+        // A revived instance never registered the accelerometer (it skips setup when sleep is
+        // already confirmed); re-register in every case.
+        sensorManager = sensorManager ?: getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        sensorManager?.unregisterListener(this)
+        sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
+            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+        motionEvents.clear()
+        isSmartWindowActive = true
+    }
+
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     private fun cancelAlarm() {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmManager.cancel(smartWindowPendingIntent())
+        isSmartWindowActive = false
         val intent = Intent(this, AlarmReceiver::class.java).apply { action = "com.x13labs.dreampulse.ACTION_ALARM" }
         val pendingIntent = PendingIntent.getBroadcast(this, ALARM_REQUEST_CODE, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         alarmManager.cancel(pendingIntent)
@@ -469,6 +521,9 @@ class SleepMonitorService : Service(), SensorEventListener {
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
+        if (smartWakeLock?.isHeld == true) {
+            smartWakeLock?.release()
+        }
         sensorManager?.unregisterListener(this)
         healthServicesManager.setSimulation(false)
         
@@ -487,8 +542,11 @@ class SleepMonitorService : Service(), SensorEventListener {
         const val EXTRA_SLEEP_DURATION = "extra_sleep_duration"
         const val EXTRA_FRESH_START = "extra_fresh_start"
         const val ACTION_STOP_MONITORING = "com.x13labs.dreampulse.ACTION_STOP_MONITORING"
+        const val ACTION_SMART_WINDOW = "com.x13labs.dreampulse.ACTION_SMART_WINDOW"
         const val ACTION_SIMULATE_SLEEP = "com.x13labs.dreampulse.ACTION_SIMULATE_SLEEP"
         private const val ALARM_REQUEST_CODE = 1001
+        private const val SMART_WINDOW_REQUEST_CODE = 1004
+        private const val SMART_WINDOW_MS = 15 * 60 * 1000L
         /** Longest we expect falling asleep to take; also used by the heuristic's catch-all. */
         private const val MAX_SLEEP_LATENCY_MS = 60 * 60 * 1000L
         /** A recovered session whose wake time passed longer ago than this is considered over. */
