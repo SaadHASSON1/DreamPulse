@@ -52,6 +52,10 @@
     <string name="hours">Saat</string>
     <string name="minutes">Dakika</string>
     <string name="tap_to_change">Değiştirmek için dokun</string>
+    <string name="history_title">Son geceler</string>
+    <string name="history_empty">Gecelerin ilk alarmdan sonra burada görünecek.</string>
+    <string name="history_latency">Uykuya dalma: %1$d dk</string>
+    <string name="history_battery">Pil kullanımı %%%1$d</string>
     <string name="tile_description">Uykuyu başlat ve alarmını gör</string>
     <string name="tile_start">Uykuyu başlat</string>
     <string name="tile_alarm">Alarm</string>

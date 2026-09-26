@@ -15,6 +15,8 @@ import com.x13labs.dreampulse.data.repository.SleepRepository
 import com.x13labs.dreampulse.domain.model.SleepState
 import com.x13labs.dreampulse.receiver.AlarmReceiver
 import com.x13labs.dreampulse.receiver.HeartbeatReceiver
+import com.x13labs.dreampulse.data.local.NightHistory
+import com.x13labs.dreampulse.data.local.NightLog
 import com.x13labs.dreampulse.util.NotificationHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -46,8 +48,10 @@ class SleepMonitorService : Service(), SensorEventListener {
     private var wakeLock: PowerManager.WakeLock? = null
     
     private var serviceStartTime: Long = 0
-    private val hrWindow = mutableListOf<Float>()
-    private var hrBaseline = 0f
+    @Volatile private var detector: com.x13labs.dreampulse.domain.SleepDetector? = null
+    private val minuteHr = mutableListOf<Float>()
+    private val minuteMotion = java.util.concurrent.atomic.AtomicInteger(0)
+    private var lastLogTime = 0L
     @Volatile private var lastMotionTime: Long = System.currentTimeMillis()
 
     // On-wrist state from TYPE_LOW_LATENCY_OFFBODY_DETECT: null until the sensor reports
@@ -55,7 +59,6 @@ class SleepMonitorService : Service(), SensorEventListener {
     @Volatile private var isOnBody: Boolean? = null
     @Volatile private var lastHeartRateTime = 0L
     @Volatile private var isSleepConfirmed = false
-    private var motionSilenceCount = 0
     private var motionEvents = mutableListOf<Long>()
     private var isInitialized = false
     
@@ -130,6 +133,8 @@ class SleepMonitorService : Service(), SensorEventListener {
                 preferencesManager.saveServiceStartTime(serviceStartTime)
                 preferencesManager.saveSleepConfirmed(false)
                 preferencesManager.setTrackingActive(true)
+                preferencesManager.saveSleepSource("")
+                preferencesManager.saveBatteryStart(NightHistory.batteryLevel(this@SleepMonitorService))
                 // A sleep start left over from the previous night must not leak into this one
                 sleepRepository.saveSleepStartTime(0L)
                 healthServicesManager.resetStates()
@@ -170,6 +175,14 @@ class SleepMonitorService : Service(), SensorEventListener {
                 return@launch
             }
 
+            if (detector == null) {
+                detector = com.x13labs.dreampulse.domain.SleepDetector(serviceStartTime).also { d ->
+                    // A revived service lost the stillness history: start counting from now
+                    // rather than from the session start, which could fire at once.
+                    if (!isFreshStart) d.onMotion(System.currentTimeMillis())
+                    isOnBody?.let { d.onWorn(System.currentTimeMillis(), it) }
+                }
+            }
             HeartbeatReceiver.schedule(this@SleepMonitorService)
             com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(this@SleepMonitorService)
 
@@ -217,10 +230,8 @@ class SleepMonitorService : Service(), SensorEventListener {
             healthServicesManager.heartRate.collectLatest { bpm ->
                 if (bpm > 30) {
                     lastHeartRateTime = System.currentTimeMillis()
-                    synchronized(hrWindow) {
-                        hrWindow.add(bpm)
-                        if (hrWindow.size > 30) hrWindow.removeAt(0)
-                    }
+                    detector?.onHeartRate(lastHeartRateTime, bpm)
+                    synchronized(minuteHr) { minuteHr.add(bpm) }
                 }
             }
         }
@@ -259,7 +270,11 @@ class SleepMonitorService : Service(), SensorEventListener {
         null -> now - lastHeartRateTime < HR_FRESHNESS_MS
     }
 
-    private fun confirmSleep(source: String, isSimulation: Boolean = false) {
+    /**
+     * [onset] is when the user actually fell asleep; for the stillness rules that is the start
+     * of the stillness, which can be up to 25 minutes before this call.
+     */
+    private fun confirmSleep(source: String, isSimulation: Boolean = false, onset: Long = System.currentTimeMillis()) {
         if (isSleepConfirmed) return
         
         // Safety: Prevent accidental trigger in the first minute unless simulation
@@ -268,10 +283,11 @@ class SleepMonitorService : Service(), SensorEventListener {
         Log.d("SleepMonitor", "Sleep confirmed via: $source (simulation=$isSimulation, duration=${sleepDurationMillis}ms)")
         isSleepConfirmed = true
         healthServicesManager.updateSleepState(SleepState.ASLEEP)
-        val now = System.currentTimeMillis()
+        val now = onset.coerceIn(serviceStartTime, System.currentTimeMillis())
         
         serviceScope.launch {
             preferencesManager.saveSleepConfirmed(true)
+            preferencesManager.saveSleepSource(source)
             sleepRepository.saveSleepStartTime(now)
             sleepRepository.setTracking(true)
             healthServicesManager.stopHeartRateMeasurement()
@@ -333,6 +349,7 @@ class SleepMonitorService : Service(), SensorEventListener {
             val onBody = event.values[0] == 1.0f
             if (onBody != isOnBody) Log.d("SleepMonitor", if (onBody) "Watch ON wrist" else "Watch OFF wrist — sleep detection paused")
             isOnBody = onBody
+            detector?.onWorn(System.currentTimeMillis(), onBody)
             healthServicesManager.updateOnBodyStatus(onBody)
             // Putting the watch back on restarts the stillness timer from zero
             if (onBody) lastMotionTime = System.currentTimeMillis()
@@ -348,7 +365,8 @@ class SleepMonitorService : Service(), SensorEventListener {
                 motionEvents.removeAll { now - it > 4000 } // Keep last 4 seconds
                 if (motionEvents.size >= 3) {
                     lastMotionTime = now
-                    motionSilenceCount = 0
+                    detector?.onMotion(now)
+                    minuteMotion.incrementAndGet()
                     if (isSleepConfirmed && isSmartWindowActive) triggerAlarmNow()
                     motionEvents.clear()
                 }
@@ -356,40 +374,26 @@ class SleepMonitorService : Service(), SensorEventListener {
         }
     }
 
+    /** Runs every 20 s until sleep is confirmed; writes one signal line per minute. */
     private fun checkAdvancedHeuristic() {
         if (isSleepConfirmed) return
-        
+        val d = detector ?: return
         val now = System.currentTimeMillis()
 
-        // Not worn: pause detection by holding the stillness timer at zero. Only sleep while
-        // wearing the watch counts. (The backup alarm still covers the whole night.)
-        if (!isWorn(now)) {
-            lastMotionTime = now
-            return
+        if (now - lastLogTime >= 60_000L) {
+            lastLogTime = now
+            val hr = synchronized(minuteHr) {
+                val v = if (minuteHr.isEmpty()) "" else minuteHr.average().toInt().toString()
+                minuteHr.clear()
+                v
+            }
+            val worn = when (isOnBody) { true -> "1"; false -> "0"; null -> "" }
+            val line = "$now,${minuteMotion.getAndSet(0)},$hr,$worn,${d.stillForMs(now) / 60_000}"
+            try { NightLog.append(this, serviceStartTime, line) } catch (e: Exception) { Log.w("SleepMonitor", "Night log failed", e) }
         }
 
-        val timeSinceLastMotion = now - lastMotionTime
-        val currentAvg = synchronized(hrWindow) { if (hrWindow.isNotEmpty()) hrWindow.average().toFloat() else 0f }
-        
-        if (hrBaseline == 0f && currentAvg > 0f && (now - serviceStartTime > 5 * 60 * 1000L)) {
-            hrBaseline = currentAvg
-        }
-
-        // 1. ABSOLUTE MOTION TIMEOUT: 10 minutes of NO movement
-        if (timeSinceLastMotion > 10 * 60 * 1000L) {
-            confirmSleep("Motion Timeout")
-            return
-        }
-
-        // 2. HR TREND: Heart rate drops below baseline during stillness
-        if (timeSinceLastMotion > 5 * 60 * 1000L && currentAvg > 0 && hrBaseline > 0 && currentAvg < (hrBaseline - 8f)) {
-            confirmSleep("Resting HR Heuristic")
-            return
-        }
-        
-        // 3. FALLBACK: After 45 minutes, become very inclusive
-        if ((now - serviceStartTime) > 45 * 60 * 1000L && timeSinceLastMotion > 5 * 60 * 1000L) {
-             confirmSleep("Safety Catch-all")
+        d.evaluate(now)?.let { decision ->
+            confirmSleep(decision.source, onset = decision.onset)
         }
     }
 

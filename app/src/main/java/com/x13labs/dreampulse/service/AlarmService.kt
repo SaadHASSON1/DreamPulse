@@ -212,11 +212,26 @@ class AlarmService : Service() {
         serviceScope.launch {
             // Keep what the morning summary needs before the session fields are cleared
             // (sleepStartTime itself is kept until the next session starts).
-            preferencesManager.saveLastSession(
-                sessionStart = preferencesManager.serviceStartTime.first(),
-                scheduledWake = preferencesManager.targetWakeTime.first(),
-                wake = System.currentTimeMillis(),
-            )
+            val sessionStart = preferencesManager.serviceStartTime.first()
+            val scheduledWake = preferencesManager.targetWakeTime.first()
+            val wake = System.currentTimeMillis()
+            preferencesManager.saveLastSession(sessionStart = sessionStart, scheduledWake = scheduledWake, wake = wake)
+            if (sessionStart > 0) {
+                val confirmed = preferencesManager.isSleepConfirmed.first()
+                com.x13labs.dreampulse.data.local.NightHistory.append(
+                    this@AlarmService,
+                    com.x13labs.dreampulse.data.local.NightHistory.Night(
+                        sessionStart = sessionStart,
+                        sleepOnset = if (confirmed) preferencesManager.sleepStartTime.first() else 0L,
+                        source = if (confirmed) preferencesManager.sleepSource.first() else "backup alarm",
+                        wake = wake,
+                        scheduledWake = scheduledWake,
+                        goalMinutes = preferencesManager.sleepDuration.first(),
+                        batteryStart = preferencesManager.batteryStart.first(),
+                        batteryEnd = com.x13labs.dreampulse.data.local.NightHistory.batteryLevel(this@AlarmService),
+                    )
+                )
+            }
             preferencesManager.setTrackingActive(false)
             preferencesManager.saveSleepConfirmed(false)
             preferencesManager.saveServiceStartTime(0L)

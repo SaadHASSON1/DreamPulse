@@ -52,6 +52,10 @@
     <string name="hours">ساعات</string>
     <string name="minutes">دقائق</string>
     <string name="tap_to_change">اضغط للتعديل</string>
+    <string name="history_title">آخر الليالي</string>
+    <string name="history_empty">ستظهر لياليك هنا بعد أول منبّه.</string>
+    <string name="history_latency">%1$d د حتى غفوت</string>
+    <string name="history_battery">استهلاك البطارية %1$d%%</string>
     <string name="tile_description">ابدأ النوم وشاهد موعد المنبّه</string>
     <string name="tile_start">ابدأ النوم</string>
     <string name="tile_alarm">المنبّه</string>

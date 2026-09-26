@@ -13,8 +13,8 @@ android {
         applicationId = "com.x13labs.dreampulse"
         minSdk = 30
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.0.15"
+        versionCode = 16
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -64,6 +64,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.11.0")
 
     // Wear OS Tiles
+    testImplementation("junit:junit:4.13.2")
+
     implementation("androidx.wear.tiles:tiles:1.6.2")
     implementation("androidx.wear.protolayout:protolayout:1.4.2")
     implementation("androidx.wear.protolayout:protolayout-expression:1.4.2")

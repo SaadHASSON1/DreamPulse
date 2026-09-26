@@ -70,7 +70,7 @@ private const val MINUTE_STEP = 5
 
 /**
  * Navigation map
- *  home      pager [Setup | Settings] when idle, Tracking while a session runs
+ *  home      pager [Setup | History | Settings] when idle, Tracking while a session runs
  *  duration  wheel pickers for hours and minutes
  *  deadline  system time picker for the wake-by time
  *  language  language list
@@ -108,10 +108,11 @@ private fun HomeScreen(
         TrackingScreen(viewModel)
         return
     }
-    val pager = rememberPagerState(pageCount = { 2 })
+    val pager = rememberPagerState(pageCount = { 3 })
     HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
         when (page) {
             0 -> SetupScreen(viewModel, onEditDuration, onEditDeadline)
+            1 -> HistoryScreen()
             else -> SettingsScreen(viewModel, onEditDeadline, onLanguage)
         }
     }
@@ -158,7 +159,7 @@ private fun SetupScreen(viewModel: MainViewModel, onEditDuration: () -> Unit, on
     Box(Modifier.fillMaxSize().background(Dream.Sky)) {
         StarField()
         EdgeRing(fraction = duration / (MAX_HOURS * 60f), color = Dream.Moon, track = Dream.Track, knob = true)
-        PageDots(0, 2, Modifier.align(Alignment.TopCenter).padding(top = 22.dp))
+        PageDots(0, 3, Modifier.align(Alignment.TopCenter).padding(top = 22.dp))
 
         // Content lives between the dots (top) and the edge button (bottom): the column's
         // padding reserves both areas, so nothing can overlap them.

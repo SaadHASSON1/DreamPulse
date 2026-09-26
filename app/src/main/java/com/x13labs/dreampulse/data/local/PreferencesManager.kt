@@ -129,6 +129,20 @@ class PreferencesManager @Inject constructor(
         }
     }
 
+    private val SLEEP_SOURCE_KEY = androidx.datastore.preferences.core.stringPreferencesKey("sleep_source")
+    private val BATTERY_START_KEY = intPreferencesKey("battery_start")
+
+    val sleepSource: Flow<String> = context.dataStore.data.map { it[SLEEP_SOURCE_KEY] ?: "" }
+    val batteryStart: Flow<Int> = context.dataStore.data.map { it[BATTERY_START_KEY] ?: 0 }
+
+    suspend fun saveSleepSource(source: String) {
+        context.dataStore.edit { it[SLEEP_SOURCE_KEY] = source }
+    }
+
+    suspend fun saveBatteryStart(level: Int) {
+        context.dataStore.edit { it[BATTERY_START_KEY] = level }
+    }
+
     // Hard Deadline ("Must wake by" feature)
     private val HARD_DEADLINE_ENABLED_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("hard_deadline_enabled")
     private val HARD_DEADLINE_MINUTES_KEY = intPreferencesKey("hard_deadline_minutes")
