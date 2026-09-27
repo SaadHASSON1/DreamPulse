@@ -240,10 +240,9 @@ class SleepMonitorService : Service(), SensorEventListener {
     private fun observeSleepState() {
         serviceScope.launch {
             healthServicesManager.sleepState.collectLatest { state ->
-                if (state == SleepState.ASLEEP && !isSleepConfirmed) {
-                    val now = System.currentTimeMillis()
-                    confirmSleep("System Health Provider", onset = detector?.onsetForSystemSignal(now) ?: now)
-                }
+                // Not trusted on its own (it can be stale right after waking up): the detector
+                // accepts it only once our own stillness confirms it.
+                if (!isSleepConfirmed) detector?.onSystemSleepState(state == SleepState.ASLEEP)
             }
         }
     }

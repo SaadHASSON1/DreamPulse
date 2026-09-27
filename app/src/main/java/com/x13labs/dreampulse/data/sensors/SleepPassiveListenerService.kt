@@ -16,9 +16,10 @@ class SleepPassiveListenerService : PassiveListenerService() {
     lateinit var healthServicesManager: HealthServicesManager
 
     override fun onUserActivityInfoReceived(info: UserActivityInfo) {
-        if (info.userActivityState == UserActivityState.USER_ACTIVITY_ASLEEP) {
-            healthServicesManager.updateSleepState(SleepState.ASLEEP)
-        }
+        // Report both directions, so a later "awake" cancels an earlier "asleep"
+        healthServicesManager.updateSleepState(
+            if (info.userActivityState == UserActivityState.USER_ACTIVITY_ASLEEP) SleepState.ASLEEP else SleepState.AWAKE
+        )
     }
 
     override fun onNewDataPointsReceived(dataPoints: androidx.health.services.client.data.DataPointContainer) {

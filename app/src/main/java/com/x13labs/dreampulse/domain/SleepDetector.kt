@@ -16,9 +16,15 @@ package com.x13labs.dreampulse.domain
  *  1. Stillness of [BIG_DROP_STILLNESS_MS] with heart rate at least [BIG_DROP] below the baseline.
  *  2. Stillness of [HR_STILLNESS_MS] with heart rate at least [HR_DROP] below the baseline.
  *  3. Stillness of [LONG_STILLNESS_MS] alone (for when heart rate is unavailable).
- * Stillness only counts while the watch is worn. The reported onset is always the START of the
- * stillness, not the moment a rule fires; the same applies to the system's own "asleep"
- * signal via [onsetForSystemSignal].
+ *  4. The system's own "asleep" signal, but only once confirmed by [SYSTEM_MIN_STILL_MS] of our
+ *     own stillness: on 2026-09-27 the system still reported "asleep" from the morning sleep
+ *     right after the user woke up, and the app believed it after 3 minutes.
+ * Stillness only counts while the watch is worn.
+ *
+ * Onset: nobody falls asleep the instant they stop moving. When the heart rate shows it, the
+ * onset is halfway between the start of the stillness and the first low reading (real night:
+ * still from 04:51:30, first low reading about 04:56:30 -> about 04:54; Samsung Health: 04:54).
+ * Otherwise it is the start of the stillness.
  */
 class SleepDetector(private val sessionStart: Long) {
 
@@ -27,6 +33,13 @@ class SleepDetector(private val sessionStart: Long) {
     private val hrSamples = ArrayList<Pair<Long, Float>>()
     private var stillSince: Long = sessionStart
     private var worn: Boolean? = null
+    private var systemSaysAsleep = false
+
+    /** Latest sleep state reported by the system (Health Services). */
+    @Synchronized
+    fun onSystemSleepState(asleep: Boolean) {
+        systemSaysAsleep = asleep
+    }
 
     @Synchronized
     fun onMotion(now: Long) {
@@ -77,23 +90,25 @@ class SleepDetector(private val sessionStart: Long) {
         val recent = if (still >= BIG_DROP_STILLNESS_MS) recentDuringStillness(now) else null
         if (base != null && recent != null) {
             if (still >= BIG_DROP_STILLNESS_MS && recent <= base * (1f - BIG_DROP)) {
-                return Decision(stillSince, "stillness+big heart-rate drop")
+                return Decision(onsetEstimate(base * (1f - HR_DROP)), "stillness+big heart-rate drop")
             }
             if (still >= HR_STILLNESS_MS && recent <= base * (1f - HR_DROP)) {
-                return Decision(stillSince, "stillness+heart-rate")
+                return Decision(onsetEstimate(base * (1f - HR_DROP)), "stillness+heart-rate")
             }
+        }
+        if (systemSaysAsleep && still >= SYSTEM_MIN_STILL_MS) {
+            return Decision(onsetEstimate(base?.let { it * (1f - HR_DROP) }), "system+stillness")
         }
         if (still >= LONG_STILLNESS_MS) return Decision(stillSince, "long stillness")
         return null
     }
 
-    /**
-     * The system reports sleep late (it needs its own evidence first). If the user has been
-     * still for a while, they fell asleep at the start of that stillness, not now.
-     */
-    @Synchronized
-    fun onsetForSystemSignal(now: Long): Long =
-        if (worn != false && now - stillSince >= SYSTEM_BACKDATE_MIN_STILL_MS) stillSince else now
+    /** Halfway from the start of stillness to the first reading below [lowBpm], if any. */
+    private fun onsetEstimate(lowBpm: Float?): Long {
+        if (lowBpm == null) return stillSince
+        val firstLow = hrSamples.firstOrNull { (t, bpm) -> t >= stillSince && bpm <= lowBpm }?.first ?: return stillSince
+        return stillSince + (firstLow - stillSince) / 2
+    }
 
     @Synchronized
     fun stillForMs(now: Long): Long = if (worn == false) 0 else now - stillSince
@@ -112,7 +127,7 @@ class SleepDetector(private val sessionStart: Long) {
         const val LONG_STILLNESS_MS = 25 * 60 * 1000L
         const val FIRST_BURST_MS = 3 * 60 * 1000L
         const val RECENT_WINDOW_MS = 10 * 60 * 1000L
-        const val SYSTEM_BACKDATE_MIN_STILL_MS = 5 * 60 * 1000L
+        const val SYSTEM_MIN_STILL_MS = 5 * 60 * 1000L
         const val MIN_SAMPLES = 3
     }
 }

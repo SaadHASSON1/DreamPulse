@@ -41,7 +41,8 @@ class SleepDetectorTest {
         assertNull(d.evaluate(min(24)))
         val decision = d.evaluate(min(25))
         assertNotNull(decision)
-        assertEquals(min(10), decision!!.onset)
+        // halfway between the last movement (min 10) and the first low reading (min 15)
+        assertEquals(min(10) + 150_000L, decision!!.onset)
         assertEquals("stillness+heart-rate", decision.source)
     }
 
@@ -97,18 +98,39 @@ class SleepDetectorTest {
         assertNull(d.evaluate(at(10)))                                // 9 min still: not yet
         val decision = d.evaluate(at(11, 5))                          // 10 min still, 33% drop
         assertNotNull(decision)
-        assertEquals(at(1, 1), decision!!.onset)                     // 04:51:30, not 05:08
+        // halfway between 04:51:30 (last movement) and 04:56:29 (first low reading): 04:54.
+        // Samsung Health: 04:54. The old detector: 05:08.
+        assertEquals(at(1, 1) + (at(6) - at(1, 1)) / 2, decision!!.onset)
         assertEquals("stillness+big heart-rate drop", decision.source)
     }
 
+    /**
+     * Real morning, 2026-09-27: the user woke up, started a 30-min session at 11:25 (73 bpm,
+     * moving), and the system still said "asleep" from the night. The app believed it after
+     * 3 minutes. The system signal now needs 5 minutes of our own stillness.
+     */
     @Test
-    fun `late system signal is dated to the start of stillness`() {
+    fun `stale system asleep signal needs our own stillness`() {
         val d = SleepDetector(start)
         d.onWorn(start, true)
-        d.onMotion(min(2))
-        assertEquals(min(2), d.onsetForSystemSignal(min(18)))        // still 16 min
-        d.onMotion(min(20))
-        assertEquals(min(22), d.onsetForSystemSignal(min(22)))       // only 2 min still: now
+        d.onSystemSleepState(true)                    // stale "asleep" delivered at start
+        d.onMotion(min(1))
+        assertNull(d.evaluate(min(4)))                // 3 min still: not enough
+        d.onMotion(min(4))                            // moving again
+        assertNull(d.evaluate(min(8)))
+        val decision = d.evaluate(min(9))             // 5 min still with the system agreeing
+        assertNotNull(decision)
+        assertEquals(min(4), decision!!.onset)
+        assertEquals("system+stillness", decision.source)
+    }
+
+    @Test
+    fun `system awake cancels its earlier asleep signal`() {
+        val d = SleepDetector(start)
+        d.onWorn(start, true)
+        d.onSystemSleepState(true)
+        d.onSystemSleepState(false)
+        assertNull(d.evaluate(min(10)))               // 10 min still, no heart rate, system awake
     }
 
     @Test
