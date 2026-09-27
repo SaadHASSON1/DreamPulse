@@ -8,13 +8,17 @@ package com.x13labs.dreampulse.domain
  *
  * Pure logic with an injected clock (every call takes `now`), so it can be unit-tested.
  *
- * Rules, in order:
- *  1. Stillness of [HR_STILLNESS_MS] AND the recent heart rate at least [HR_DROP] below the
- *     start-of-session baseline -> asleep.
- *  2. Stillness of [LONG_STILLNESS_MS] alone -> asleep (for when heart rate is unavailable).
- * Stillness only counts while the watch is worn. The reported onset is the START of the
- * stillness, not the moment the rule fired, so the countdown is not 15-25 minutes late.
- * The system's own "asleep" signal is handled by the caller and bypasses these rules.
+ * The awake baseline is the FIRST heart-rate burst of the session: the user has just pressed
+ * Start, so they are awake. (An average over the first minutes was wrong for people who fall
+ * asleep within them: on 2026-09-27 it gave 49 bpm instead of 74 and hid a 32% drop.)
+ *
+ * Rules:
+ *  1. Stillness of [BIG_DROP_STILLNESS_MS] with heart rate at least [BIG_DROP] below the baseline.
+ *  2. Stillness of [HR_STILLNESS_MS] with heart rate at least [HR_DROP] below the baseline.
+ *  3. Stillness of [LONG_STILLNESS_MS] alone (for when heart rate is unavailable).
+ * Stillness only counts while the watch is worn. The reported onset is always the START of the
+ * stillness, not the moment a rule fires; the same applies to the system's own "asleep"
+ * signal via [onsetForSystemSignal].
  */
 class SleepDetector(private val sessionStart: Long) {
 
@@ -39,17 +43,18 @@ class SleepDetector(private val sessionStart: Long) {
     fun onHeartRate(now: Long, bpm: Float) {
         if (bpm < 30f || bpm > 220f) return
         hrSamples.add(now to bpm)
-        // Keep the baseline window plus the last hour; drop the middle to bound memory
+        // Keep the first burst (baseline) plus the last hour, to bound memory
+        val firstBurstEnd = (hrSamples.firstOrNull()?.first ?: now) + FIRST_BURST_MS
         val cutoff = now - 60 * 60 * 1000L
-        hrSamples.removeAll { (t, _) -> t < cutoff && t > sessionStart + BASELINE_WINDOW_MS }
+        hrSamples.removeAll { (t, _) -> t < cutoff && t > firstBurstEnd }
     }
 
-    /** Median heart rate of the first minutes of the session, or null if too few samples. */
+    /** Median of the first heart-rate burst of the session, or null if it had too few samples. */
     @Synchronized
     fun baseline(): Float? {
-        val early = hrSamples.filter { (t, _) -> t <= sessionStart + BASELINE_WINDOW_MS }.map { it.second }
-        val source = if (early.size >= MIN_SAMPLES) early else hrSamples.take(MIN_SAMPLES).map { it.second }
-        return if (source.size >= MIN_SAMPLES) median(source) else null
+        val first = hrSamples.firstOrNull() ?: return null
+        val burst = hrSamples.filter { (t, _) -> t <= first.first + FIRST_BURST_MS }.map { it.second }
+        return if (burst.size >= MIN_SAMPLES) median(burst) else null
     }
 
     /** Median heart rate during the current stillness, or null if too few samples. */
@@ -68,16 +73,27 @@ class SleepDetector(private val sessionStart: Long) {
             return null
         }
         val still = now - stillSince
-        if (still >= HR_STILLNESS_MS) {
-            val base = baseline()
-            val recent = recentDuringStillness(now)
-            if (base != null && recent != null && recent <= base * (1f - HR_DROP)) {
+        val base = baseline()
+        val recent = if (still >= BIG_DROP_STILLNESS_MS) recentDuringStillness(now) else null
+        if (base != null && recent != null) {
+            if (still >= BIG_DROP_STILLNESS_MS && recent <= base * (1f - BIG_DROP)) {
+                return Decision(stillSince, "stillness+big heart-rate drop")
+            }
+            if (still >= HR_STILLNESS_MS && recent <= base * (1f - HR_DROP)) {
                 return Decision(stillSince, "stillness+heart-rate")
             }
         }
         if (still >= LONG_STILLNESS_MS) return Decision(stillSince, "long stillness")
         return null
     }
+
+    /**
+     * The system reports sleep late (it needs its own evidence first). If the user has been
+     * still for a while, they fell asleep at the start of that stillness, not now.
+     */
+    @Synchronized
+    fun onsetForSystemSignal(now: Long): Long =
+        if (worn != false && now - stillSince >= SYSTEM_BACKDATE_MIN_STILL_MS) stillSince else now
 
     @Synchronized
     fun stillForMs(now: Long): Long = if (worn == false) 0 else now - stillSince
@@ -89,11 +105,40 @@ class SleepDetector(private val sessionStart: Long) {
     }
 
     companion object {
+        const val BIG_DROP_STILLNESS_MS = 10 * 60 * 1000L
+        const val BIG_DROP = 0.15f
         const val HR_STILLNESS_MS = 15 * 60 * 1000L
-        const val LONG_STILLNESS_MS = 25 * 60 * 1000L
         const val HR_DROP = 0.05f
-        const val BASELINE_WINDOW_MS = 10 * 60 * 1000L
+        const val LONG_STILLNESS_MS = 25 * 60 * 1000L
+        const val FIRST_BURST_MS = 3 * 60 * 1000L
         const val RECENT_WINDOW_MS = 10 * 60 * 1000L
+        const val SYSTEM_BACKDATE_MIN_STILL_MS = 5 * 60 * 1000L
         const val MIN_SAMPLES = 3
+    }
+}
+
+/**
+ * Smart wake should react to light-sleep movement (turning over), not to a single twitch:
+ * it fires once there are at least [EPISODES] separate movement episodes (at least
+ * [EPISODE_GAP_MS] apart) within [WINDOW_MS].
+ */
+class SmartWakeGate {
+    private val episodes = ArrayDeque<Long>()
+
+    /** Record a movement burst; returns true when the alarm should fire. */
+    @Synchronized
+    fun onMotion(now: Long): Boolean {
+        if (episodes.isEmpty() || now - episodes.last() >= EPISODE_GAP_MS) episodes.addLast(now)
+        while (episodes.isNotEmpty() && now - episodes.first() > WINDOW_MS) episodes.removeFirst()
+        return episodes.size >= EPISODES
+    }
+
+    @Synchronized
+    fun reset() = episodes.clear()
+
+    companion object {
+        const val EPISODES = 2
+        const val EPISODE_GAP_MS = 30_000L
+        const val WINDOW_MS = 3 * 60 * 1000L
     }
 }

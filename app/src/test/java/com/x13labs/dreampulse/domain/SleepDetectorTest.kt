@@ -1,6 +1,8 @@
 package com.x13labs.dreampulse.domain
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -74,6 +76,55 @@ class SleepDetectorTest {
         val decision = d.evaluate(min(65))
         assertNotNull(decision)
         assertEquals(min(40), decision!!.onset)
+    }
+
+    /**
+     * Real night, 2026-09-27 (Galaxy Watch8): Start at 04:50:29 with 74 bpm, last movement
+     * 04:51:30, then 48-51 bpm while still. Samsung Health: asleep at 04:54. The old detector
+     * averaged the first 10 minutes into its "awake" baseline (49 bpm) and dated sleep 05:08.
+     */
+    @Test
+    fun `real night - fast sleeper is dated to the start of stillness`() {
+        val t0 = 1_790_473_829_997L                     // 04:50:29
+        fun at(m: Int, s: Int = 0) = t0 + m * 60_000L + s * 1000L
+        val d = SleepDetector(t0)
+        d.onWorn(t0, true)
+        repeat(8) { i -> d.onHeartRate(at(1, i * 5), 74f) }        // first burst, awake
+        d.onMotion(at(1, 1))                                         // 04:51:30 last movement
+        listOf(6 to 48f, 7 to 49f, 11 to 49f, 12 to 50f, 16 to 50f, 17 to 51f).forEach { (m, bpm) ->
+            repeat(5) { i -> d.onHeartRate(at(m, i * 10), bpm) }
+        }
+        assertNull(d.evaluate(at(10)))                                // 9 min still: not yet
+        val decision = d.evaluate(at(11, 5))                          // 10 min still, 33% drop
+        assertNotNull(decision)
+        assertEquals(at(1, 1), decision!!.onset)                     // 04:51:30, not 05:08
+        assertEquals("stillness+big heart-rate drop", decision.source)
+    }
+
+    @Test
+    fun `late system signal is dated to the start of stillness`() {
+        val d = SleepDetector(start)
+        d.onWorn(start, true)
+        d.onMotion(min(2))
+        assertEquals(min(2), d.onsetForSystemSignal(min(18)))        // still 16 min
+        d.onMotion(min(20))
+        assertEquals(min(22), d.onsetForSystemSignal(min(22)))       // only 2 min still: now
+    }
+
+    @Test
+    fun `smart wake ignores a single twitch but fires on two separate movements`() {
+        val g = SmartWakeGate()
+        assertFalse(g.onMotion(min(0)))
+        assertFalse(g.onMotion(min(0) + 5_000))      // same twitch, 5 s later
+        assertFalse(g.onMotion(min(0) + 20_000))
+        assertTrue(g.onMotion(min(1)))                // a second movement a minute later
+    }
+
+    @Test
+    fun `smart wake forgets movements older than the window`() {
+        val g = SmartWakeGate()
+        assertFalse(g.onMotion(min(0)))
+        assertFalse(g.onMotion(min(5)))               // 5 min later: the first one expired
     }
 
     @Test

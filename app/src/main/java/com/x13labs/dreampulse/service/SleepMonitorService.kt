@@ -241,7 +241,8 @@ class SleepMonitorService : Service(), SensorEventListener {
         serviceScope.launch {
             healthServicesManager.sleepState.collectLatest { state ->
                 if (state == SleepState.ASLEEP && !isSleepConfirmed) {
-                    confirmSleep("System Health Provider")
+                    val now = System.currentTimeMillis()
+                    confirmSleep("System Health Provider", onset = detector?.onsetForSystemSignal(now) ?: now)
                 }
             }
         }
@@ -367,7 +368,8 @@ class SleepMonitorService : Service(), SensorEventListener {
                     lastMotionTime = now
                     detector?.onMotion(now)
                     minuteMotion.incrementAndGet()
-                    if (isSleepConfirmed && isSmartWindowActive) triggerAlarmNow()
+                    // Two separate movements (a real turn-over), not a single twitch
+                    if (isSleepConfirmed && isSmartWindowActive && smartWakeGate.onMotion(now)) triggerAlarmNow()
                     motionEvents.clear()
                 }
             }
@@ -411,6 +413,7 @@ class SleepMonitorService : Service(), SensorEventListener {
     }
 
     @Volatile private var isSmartWindowActive = false
+    private val smartWakeGate = com.x13labs.dreampulse.domain.SmartWakeGate()
     private var smartWakeLock: PowerManager.WakeLock? = null
 
     private fun scheduleAlarmsInternal(targetTime: Long) {
@@ -485,6 +488,7 @@ class SleepMonitorService : Service(), SensorEventListener {
             sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
         motionEvents.clear()
+        smartWakeGate.reset()
         isSmartWindowActive = true
     }
 
