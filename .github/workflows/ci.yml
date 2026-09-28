@@ -31,6 +31,13 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug
 
+      - name: Lint
+        run: ./gradlew lintDebug
+
+      # Same R8 shrinking as the Play build, signed with the debug key
+      - name: Build release configuration
+        run: ./gradlew assembleProfiling
+
       - name: Upload test report
         if: failure()
         uses: actions/upload-artifact@v4

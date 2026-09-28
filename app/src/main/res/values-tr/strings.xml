@@ -60,4 +60,26 @@
     <string name="tile_description">Uykuyu başlat ve alarmını gör</string>
     <string name="tile_start">Uykuyu başlat</string>
     <string name="tile_alarm">Alarm</string>
+    <string name="channel_tracking_desc">DreamPulse uykuya dalmanızı beklerken görünür</string>
+    <string name="channel_alarms_desc">Seçtiğiniz saatte uyandırır</string>
+    <string name="low_battery_title">Pil %%%1$d</string>
+    <string name="low_battery_body" formatted="false">Bir gece pilin yaklaşık %17\'sini harcar. Önce saati şarj edin, yoksa alarmdan önce kapanabilir.</string>
+    <string name="start_anyway">Yine de başla</string>
+    <string name="cancel">İptal</string>
+    <string name="crash_log">Hata kaydı</string>
+    <string name="crash_log_count">%1$d kayıt</string>
+    <string name="crash_log_hint">Bu ekranın fotoğrafını çekip geliştiriciye gönderin. İnternet üzerinden hiçbir şey gönderilmez.</string>
+    <string name="crash_log_clear">Temizle</string>
+    <string name="ob_welcome_body">Yattığınızda değil, uykuya daldığınızda saymaya başlayan alarm.</string>
+    <string name="ob_next">İleri</string>
+    <string name="ob_allow">İzin ver</string>
+    <string name="ob_sensors_title">Nabız ve hareket</string>
+    <string name="ob_sensors_body">Ne zaman uykuya daldığınızı anlamak için. Bu veriler saatinizden asla çıkmaz.</string>
+    <string name="ob_background_title">Ekran kapalıyken</string>
+    <string name="ob_background_body">Algılama gece boyunca sürsün diye \"Her zaman izin ver\" seçeneğini seçin.</string>
+    <string name="ob_notif_title">Bildirimler</string>
+    <string name="ob_notif_body">Takibin açık olduğunu göstermek ve alarmı çalmak için.</string>
+    <string name="ob_ready_title">Hazır</string>
+    <string name="ob_ready_body">Saati yatakta takın, Başla düğmesine basın ve uyuyun. Geri sayım uykuya daldığınızda başlar.</string>
+    <string name="ob_begin">Başlayalım</string>
 </resources>

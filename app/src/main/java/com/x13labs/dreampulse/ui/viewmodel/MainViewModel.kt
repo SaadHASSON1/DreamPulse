@@ -7,6 +7,7 @@ import android.os.Vibrator
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.x13labs.dreampulse.data.local.NightHistory
 import com.x13labs.dreampulse.data.local.PreferencesManager
 import com.x13labs.dreampulse.data.repository.SleepRepository
 import com.x13labs.dreampulse.data.sensors.HealthServicesManager
@@ -124,11 +125,38 @@ class MainViewModel @Inject constructor(
         HeartbeatReceiver.cancel(context)
         SleepTileService.requestUpdate(context)
         viewModelScope.launch {
+            saveNightIfSlept()
             preferencesManager.saveSleepConfirmed(false)
             preferencesManager.saveServiceStartTime(0L)
             preferencesManager.saveTargetWakeTime(0L)
         }
         (context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)?.cancel()
+    }
+
+    /**
+     * Stopping by hand after falling asleep (woke up before the alarm) is still a night:
+     * keep it in the history. Stopping before sleep was detected is a cancelled start.
+     */
+    private suspend fun saveNightIfSlept() {
+        if (!preferencesManager.isSleepConfirmed.first()) return
+        val sessionStart = preferencesManager.serviceStartTime.first()
+        val onset = preferencesManager.sleepStartTime.first()
+        if (sessionStart <= 0 || onset < sessionStart) return
+        runCatching {
+            NightHistory.append(
+                context,
+                NightHistory.Night(
+                    sessionStart = sessionStart,
+                    sleepOnset = onset,
+                    source = preferencesManager.sleepSource.first() + " (stopped)",
+                    wake = System.currentTimeMillis(),
+                    scheduledWake = preferencesManager.targetWakeTime.first(),
+                    goalMinutes = preferencesManager.sleepDuration.first(),
+                    batteryStart = preferencesManager.batteryStart.first(),
+                    batteryEnd = NightHistory.batteryLevel(context),
+                )
+            )
+        }.onFailure { Log.e("MainViewModel", "Could not save the night", it) }
     }
 
     /** Debug builds only: pretend sleep was detected now. */

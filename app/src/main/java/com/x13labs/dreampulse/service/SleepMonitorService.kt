@@ -17,6 +17,8 @@ import com.x13labs.dreampulse.receiver.AlarmReceiver
 import com.x13labs.dreampulse.receiver.HeartbeatReceiver
 import com.x13labs.dreampulse.data.local.NightHistory
 import com.x13labs.dreampulse.data.local.NightLog
+import com.x13labs.dreampulse.data.local.BootAlarmStore
+import com.x13labs.dreampulse.domain.WakePlan
 import com.x13labs.dreampulse.util.NotificationHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -43,15 +45,16 @@ class SleepMonitorService : Service(), SensorEventListener {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var sleepDurationMillis: Long = 0
     private var sensorManager: SensorManager? = null
-    
+
     // Bug #5 fix: Single WakeLock instance, refreshed in duty cycle
     private var wakeLock: PowerManager.WakeLock? = null
-    
+
     private var serviceStartTime: Long = 0
     @Volatile private var detector: com.x13labs.dreampulse.domain.SleepDetector? = null
     private val minuteHr = mutableListOf<Float>()
     private val minuteMotion = java.util.concurrent.atomic.AtomicInteger(0)
     private var lastLogTime = 0L
+    @Volatile private var baselineSaved = false
     @Volatile private var lastMotionTime: Long = System.currentTimeMillis()
 
     // On-wrist state from TYPE_LOW_LATENCY_OFFBODY_DETECT: null until the sensor reports
@@ -61,7 +64,7 @@ class SleepMonitorService : Service(), SensorEventListener {
     @Volatile private var isSleepConfirmed = false
     private var motionEvents = mutableListOf<Long>()
     private var isInitialized = false
-    
+
     // Flag to distinguish system kill from user stop
     private var stoppedByUser = false
 
@@ -78,7 +81,7 @@ class SleepMonitorService : Service(), SensorEventListener {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
-        
+
         if (action == ACTION_STOP_MONITORING) {
             stoppedByUser = true
             HeartbeatReceiver.cancel(this)
@@ -116,8 +119,10 @@ class SleepMonitorService : Service(), SensorEventListener {
         // that is needed. Re-reading persisted state here could overwrite in-memory state that
         // has not been written to DataStore yet (e.g. a sleep confirmation in progress).
         val opensSmartWindow = action == ACTION_SMART_WINDOW
+        val zoneChanged = action == ACTION_TIME_ZONE_CHANGED
         if (isInitialized && !isFreshStart) {
             if (opensSmartWindow) openSmartWindow()
+            if (zoneChanged) serviceScope.launch { replanWakeTime() }
             return START_STICKY
         }
 
@@ -135,6 +140,8 @@ class SleepMonitorService : Service(), SensorEventListener {
                 preferencesManager.setTrackingActive(true)
                 preferencesManager.saveSleepSource("")
                 preferencesManager.saveBatteryStart(NightHistory.batteryLevel(this@SleepMonitorService))
+                preferencesManager.saveAwakeBaseline(0f)
+                baselineSaved = false
                 // A sleep start left over from the previous night must not leak into this one
                 sleepRepository.saveSleepStartTime(0L)
                 healthServicesManager.resetStates()
@@ -144,15 +151,22 @@ class SleepMonitorService : Service(), SensorEventListener {
                 // if sleep is never detected or this service is killed and never comes back.
                 // Budget = requested duration + maximum sleep latency; the Hard Deadline wins
                 // if it is earlier. confirmSleep() later replaces it with the real wake time.
-                var backupTime = serviceStartTime + sleepDurationMillis + MAX_SLEEP_LATENCY_MS
-                hardDeadlineAfter(serviceStartTime)?.let { if (it < backupTime) backupTime = it }
-                Log.d("SleepMonitor", "Backup alarm: ${java.text.SimpleDateFormat("HH:mm").format(java.util.Date(backupTime))}")
+                val backupTime = WakePlan.target(serviceStartTime, null, sleepDurationMillis, hardDeadlineAfter(serviceStartTime))
+                Log.d("SleepMonitor", "Backup alarm: ${clock(backupTime)}")
                 preferencesManager.saveTargetWakeTime(backupTime)
                 scheduleAlarmsInternal(backupTime)
             } else if (savedStartTime > 0) {
                 // Recovery: sticky restart by the system, heartbeat, or boot.
                 // The intent may be null here, so everything comes from DataStore.
                 val targetWakeTime = preferencesManager.targetWakeTime.first()
+                val rangWhileLocked = targetWakeTime > 0 && BootAlarmStore.rangAt(this@SleepMonitorService) >= targetWakeTime - SMART_WINDOW_MS
+                if (rangWhileLocked) {
+                    // The alarm already rang after a restart, before the watch was unlocked
+                    Log.w("SleepMonitor", "Alarm already rang for this session, clearing")
+                    clearSession()
+                    stopSelf()
+                    return@launch
+                }
                 if (targetWakeTime > 0 && System.currentTimeMillis() - targetWakeTime > STALE_SESSION_MS) {
                     Log.w("SleepMonitor", "Session ended long ago — clearing instead of re-arming the alarm")
                     clearSession()
@@ -166,6 +180,8 @@ class SleepMonitorService : Service(), SensorEventListener {
 
                 // Alarms do not survive a reboot — re-arm whatever was scheduled (backup or real).
                 if (targetWakeTime > 0) {
+                    // Also refreshes the boot copy (sessions started before it existed have none)
+                    BootAlarmStore.saveTarget(this@SleepMonitorService, targetWakeTime)
                     scheduleAlarmsInternal(targetWakeTime)
                 }
             } else {
@@ -176,7 +192,10 @@ class SleepMonitorService : Service(), SensorEventListener {
             }
 
             if (detector == null) {
-                detector = com.x13labs.dreampulse.domain.SleepDetector(serviceStartTime).also { d ->
+                // A revived service keeps the awake baseline measured at Start
+                val saved = if (isFreshStart) null else preferencesManager.awakeBaseline.first().takeIf { it > 0f }
+                baselineSaved = saved != null
+                detector = com.x13labs.dreampulse.domain.SleepDetector(serviceStartTime, saved).also { d ->
                     // A revived service lost the stillness history: start counting from now
                     // rather than from the session start, which could fire at once.
                     if (!isFreshStart) d.onMotion(System.currentTimeMillis())
@@ -199,10 +218,7 @@ class SleepMonitorService : Service(), SensorEventListener {
                         healthServicesManager.startPassiveSleepMonitoring()
                         startInternalHeuristicLoop()
                     }
-                    
-                    launch(Dispatchers.Main) {
-                        android.widget.Toast.makeText(this@SleepMonitorService, "Sleep Tracking Active!", android.widget.Toast.LENGTH_SHORT).show()
-                    }
+
                 } catch (e: Exception) {
                     Log.e("SleepMonitor", "Start failed", e)
                 }
@@ -211,6 +227,7 @@ class SleepMonitorService : Service(), SensorEventListener {
             // The smart-window alarm revived a killed service: recovery above restored the
             // session, now open the window.
             if (opensSmartWindow) openSmartWindow()
+            if (zoneChanged) replanWakeTime()
         }
 
         return START_STICKY
@@ -276,7 +293,7 @@ class SleepMonitorService : Service(), SensorEventListener {
      */
     private fun confirmSleep(source: String, isSimulation: Boolean = false, onset: Long = System.currentTimeMillis()) {
         if (isSleepConfirmed) return
-        
+
         // Safety: Prevent accidental trigger in the first minute unless simulation
         if (!isSimulation && System.currentTimeMillis() - serviceStartTime < 60000) return
 
@@ -284,7 +301,7 @@ class SleepMonitorService : Service(), SensorEventListener {
         isSleepConfirmed = true
         healthServicesManager.updateSleepState(SleepState.ASLEEP)
         val now = onset.coerceIn(serviceStartTime, System.currentTimeMillis())
-        
+
         serviceScope.launch {
             preferencesManager.saveSleepConfirmed(true)
             preferencesManager.saveSleepSource(source)
@@ -292,7 +309,7 @@ class SleepMonitorService : Service(), SensorEventListener {
             sleepRepository.setTracking(true)
             healthServicesManager.stopHeartRateMeasurement()
         }
-        
+
         // Stop battery-heavy passive monitoring and HR measurement,
         // but KEEP the accelerometer registered for Smart Wake window detection.
         // The accelerometer uses minimal power and is needed to detect user movement
@@ -300,47 +317,48 @@ class SleepMonitorService : Service(), SensorEventListener {
         try {
             healthServicesManager.stopPassiveSleepMonitoring()
         } catch (e: Exception) { }
-        
-        // SM fix: Always use the user-configured duration, even for simulation
-        val baseTargetWakeTime = now + sleepDurationMillis
-        
+
+        // Always the user's goal, even for simulation; the wake-by time wins if earlier.
+        // No toast: it would light up the screen of someone who has just fallen asleep.
         serviceScope.launch {
-            // Hard Deadline: Use whichever comes first — duration-based or deadline
-            var targetWakeTime = baseTargetWakeTime
-            val deadlineTimestamp = hardDeadlineAfter(serviceStartTime)
-            if (deadlineTimestamp != null) {
-                if (deadlineTimestamp < targetWakeTime) {
-                    targetWakeTime = deadlineTimestamp
-                    Log.d("SleepMonitor", "Hard deadline active — waking at ${java.text.SimpleDateFormat("HH:mm").format(java.util.Date(deadlineTimestamp))} instead of ${java.text.SimpleDateFormat("HH:mm").format(java.util.Date(baseTargetWakeTime))}")
-                }
-            }
-            
+            val targetWakeTime = WakePlan.target(serviceStartTime, now, sleepDurationMillis, hardDeadlineAfter(serviceStartTime))
+            Log.d("SleepMonitor", "Wake time: ${clock(targetWakeTime)}")
             preferencesManager.saveTargetWakeTime(targetWakeTime)
-            
-            val timeStr = java.text.SimpleDateFormat("HH:mm").format(java.util.Date(targetWakeTime))
-            
-            val notification = notificationHelper.buildTracking(
-                getString(com.x13labs.dreampulse.R.string.notif_alarm_set, timeStr),
-                getString(com.x13labs.dreampulse.R.string.notif_alarm_set_text, timeStr),
-            )
-            com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(this@SleepMonitorService)
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            nm.notify(NotificationHelper.NOTIFICATION_ID, notification)
-            
-            // Schedule alarm (works for both simulation and real sleep)
+            showAlarmSet(targetWakeTime)
             scheduleAlarmsInternal(targetWakeTime)
         }
-        
-        serviceScope.launch(Dispatchers.Main) {
-            val durationMinutes = (sleepDurationMillis / 60000).toInt()
-            val toastMsg = if (isSimulation) {
-                "SM: Alarm in ${durationMinutes}m"
-            } else {
-                "Sleep Detected. Alarm Secure."
-            }
-            android.widget.Toast.makeText(this@SleepMonitorService, toastMsg, android.widget.Toast.LENGTH_LONG).show()
-        }
     }
+
+    private fun showAlarmSet(targetWakeTime: Long) {
+        val timeStr = clock(targetWakeTime)
+        val notification = notificationHelper.buildTracking(
+            getString(com.x13labs.dreampulse.R.string.notif_alarm_set, timeStr),
+            getString(com.x13labs.dreampulse.R.string.notif_alarm_set_text, timeStr),
+        )
+        com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(this)
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        nm.notify(NotificationHelper.NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * The time zone changed (e.g. after a flight): the goal is a duration and stays put, but
+     * the wake-by time is a local clock time, so it is resolved again in the new zone.
+     */
+    private suspend fun replanWakeTime() {
+        val deadline = hardDeadlineAfter(serviceStartTime) ?: return
+        val onset = if (isSleepConfirmed) preferencesManager.sleepStartTime.first().takeIf { it > 0 } else null
+        val target = WakePlan.target(serviceStartTime, onset, sleepDurationMillis, deadline)
+        if (target == preferencesManager.targetWakeTime.first()) return
+        Log.d("SleepMonitor", "Time zone changed, wake time now ${clock(target)}")
+        preferencesManager.saveTargetWakeTime(target)
+        if (isSleepConfirmed) showAlarmSet(target)
+        else com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(this)
+        scheduleAlarmsInternal(target)
+    }
+
+    /** Follows the watch's 12/24-hour setting. */
+    private fun clock(millis: Long): String =
+        android.text.format.DateFormat.getTimeFormat(this).format(java.util.Date(millis))
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT) {
@@ -356,7 +374,7 @@ class SleepMonitorService : Service(), SensorEventListener {
         if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
             val magnitude = sqrt(event.values[0] * event.values[0] + event.values[1] * event.values[1] + event.values[2] * event.values[2]) - 9.81f
             val absMag = if (magnitude < 0) -magnitude else magnitude
-            
+
             if (absMag > 0.4f) { 
                 val now = System.currentTimeMillis()
                 motionEvents.add(now)
@@ -391,6 +409,11 @@ class SleepMonitorService : Service(), SensorEventListener {
             try { NightLog.append(this, serviceStartTime, line) } catch (e: Exception) { Log.w("SleepMonitor", "Night log failed", e) }
         }
 
+        if (!baselineSaved) d.baseline()?.let { bpm ->
+            baselineSaved = true
+            serviceScope.launch { preferencesManager.saveAwakeBaseline(bpm) }
+        }
+
         d.evaluate(now)?.let { decision ->
             confirmSleep(decision.source, onset = decision.onset)
         }
@@ -400,10 +423,7 @@ class SleepMonitorService : Service(), SensorEventListener {
         Log.d("SleepMonitor", "triggerAlarmNow() — cancelling scheduled alarm and sending broadcast")
         // Cancel the scheduled setAlarmClock to prevent double alarm
         cancelAlarm()
-        val intent = Intent(this, AlarmReceiver::class.java).apply {
-            action = "com.x13labs.dreampulse.ACTION_ALARM"
-        }
-        sendBroadcast(intent)
+        sendBroadcast(Intent(this, AlarmReceiver::class.java).apply { action = AlarmReceiver.ACTION_ALARM })
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             stopSelf()
         }, 2000)
@@ -416,14 +436,11 @@ class SleepMonitorService : Service(), SensorEventListener {
     private fun scheduleAlarmsInternal(targetTime: Long) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val safeTargetTime = targetTime.coerceAtLeast(System.currentTimeMillis() + 60 * 1000L)
-        
-        Log.d("SleepMonitor", "Scheduling alarm: ${java.text.SimpleDateFormat("HH:mm:ss").format(java.util.Date(safeTargetTime))}")
-        
-        val receiverIntent = Intent(this, AlarmReceiver::class.java).apply { action = "com.x13labs.dreampulse.ACTION_ALARM" }
-        val pendingIntent = PendingIntent.getBroadcast(this, ALARM_REQUEST_CODE, receiverIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+        Log.d("SleepMonitor", "Scheduling alarm: ${clock(safeTargetTime)}")
 
         try {
-            alarmManager.setAlarmClock(AlarmManager.AlarmClockInfo(safeTargetTime, pendingIntent), pendingIntent)
+            AlarmReceiver.schedule(this, safeTargetTime)
 
             // Smart Wake: Only activate for durations >= 30 minutes.
             // For short durations (testing/SM), skip smart wake — the alarm fires on its own.
@@ -495,9 +512,7 @@ class SleepMonitorService : Service(), SensorEventListener {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmManager.cancel(smartWindowPendingIntent())
         isSmartWindowActive = false
-        val intent = Intent(this, AlarmReceiver::class.java).apply { action = "com.x13labs.dreampulse.ACTION_ALARM" }
-        val pendingIntent = PendingIntent.getBroadcast(this, ALARM_REQUEST_CODE, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        alarmManager.cancel(pendingIntent)
+        alarmManager.cancel(AlarmReceiver.pendingIntent(this))
     }
 
     /**
@@ -507,18 +522,7 @@ class SleepMonitorService : Service(), SensorEventListener {
      */
     private suspend fun hardDeadlineAfter(from: Long): Long? {
         if (!preferencesManager.hardDeadlineEnabled.first()) return null
-        val deadlineMinutes = preferencesManager.hardDeadlineMinutes.first()
-        val cal = java.util.Calendar.getInstance().apply {
-            timeInMillis = from
-            set(java.util.Calendar.HOUR_OF_DAY, deadlineMinutes / 60)
-            set(java.util.Calendar.MINUTE, deadlineMinutes % 60)
-            set(java.util.Calendar.SECOND, 0)
-            set(java.util.Calendar.MILLISECOND, 0)
-        }
-        if (cal.timeInMillis <= from) {
-            cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
-        }
-        return cal.timeInMillis
+        return WakePlan.deadlineAfter(from, preferencesManager.hardDeadlineMinutes.first())
     }
 
     private suspend fun clearSession() {
@@ -532,11 +536,11 @@ class SleepMonitorService : Service(), SensorEventListener {
 
     private fun startHeartRateDutyCycle() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        
+
         // Bug #5 fix: Create a single WakeLock instance
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "DreamPulse:SleepMonitor")
         wakeLock?.setReferenceCounted(false)  // Prevent leak — single acquire/release
-        
+
         serviceScope.launch {
             while (true) {
                 // Refresh WakeLock (non-reference-counted, so re-acquire just extends)
@@ -559,7 +563,7 @@ class SleepMonitorService : Service(), SensorEventListener {
         // Bug #6 fix: Only release resources, do NOT clear tracking state.
         // Tracking state should only be cleared by explicit user action (ACTION_STOP_MONITORING).
         // This allows HeartbeatReceiver to revive the service if the system killed it.
-        
+
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
         }
@@ -568,12 +572,12 @@ class SleepMonitorService : Service(), SensorEventListener {
         }
         sensorManager?.unregisterListener(this)
         healthServicesManager.setSimulation(false)
-        
+
         // Only clear tracking state if the user explicitly stopped
         if (stoppedByUser) {
             sleepRepository.stopMonitoring()
         }
-        
+
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -586,13 +590,11 @@ class SleepMonitorService : Service(), SensorEventListener {
         const val ACTION_STOP_MONITORING = "com.x13labs.dreampulse.ACTION_STOP_MONITORING"
         const val ACTION_SMART_WINDOW = "com.x13labs.dreampulse.ACTION_SMART_WINDOW"
         const val ACTION_SIMULATE_SLEEP = "com.x13labs.dreampulse.ACTION_SIMULATE_SLEEP"
-        private const val ALARM_REQUEST_CODE = 1001
+        const val ACTION_TIME_ZONE_CHANGED = "com.x13labs.dreampulse.ACTION_TIME_ZONE_CHANGED"
         private const val SMART_WINDOW_REQUEST_CODE = 1004
         private const val SMART_WINDOW_MS = 15 * 60 * 1000L
         /** Longer than one HR duty cycle (90 s on / 3.5 min off). */
         private const val HR_FRESHNESS_MS = 6 * 60 * 1000L
-        /** Longest we expect falling asleep to take; also used by the heuristic's catch-all. */
-        private const val MAX_SLEEP_LATENCY_MS = 60 * 60 * 1000L
         /** A recovered session whose wake time passed longer ago than this is considered over. */
         private const val STALE_SESSION_MS = 2 * 60 * 60 * 1000L
     }

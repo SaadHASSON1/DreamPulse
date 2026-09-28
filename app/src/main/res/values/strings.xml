@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">DreamPulse</string>
+    <string name="app_name" translatable="false">DreamPulse</string>
     <string name="tagline">Sleep smarter</string>
     <string name="by_line">by Saad HASSON · X13LABS</string>
     <string name="sleep_goal">Sleep goal</string>
@@ -58,8 +58,30 @@
     <string name="history_latency">%1$d min to fall asleep</string>
     <string name="history_battery">Battery used %1$d%%</string>
     <string name="change_time">Change time</string>
-    <string name="tile_label">DreamPulse</string>
+    <string name="tile_label" translatable="false">DreamPulse</string>
     <string name="tile_description">Start sleep and see your alarm</string>
     <string name="tile_start">Start sleep</string>
     <string name="tile_alarm">Alarm</string>
+    <string name="channel_tracking_desc">Shows while DreamPulse waits for you to fall asleep</string>
+    <string name="channel_alarms_desc">Wakes you at the chosen time</string>
+    <string name="low_battery_title">Battery %1$d%%</string>
+    <string name="low_battery_body" formatted="false">A night uses about 17% of the battery. Charge the watch first, or it may switch off before the alarm.</string>
+    <string name="start_anyway">Start anyway</string>
+    <string name="cancel">Cancel</string>
+    <string name="crash_log">Error log</string>
+    <string name="crash_log_count">Saved: %1$d</string>
+    <string name="crash_log_hint">Take a photo of this screen and send it to the developer. Nothing is sent over the internet.</string>
+    <string name="crash_log_clear">Clear</string>
+    <string name="ob_welcome_body">An alarm that starts counting when you fall asleep, not when you lie down.</string>
+    <string name="ob_next">Next</string>
+    <string name="ob_allow">Allow</string>
+    <string name="ob_sensors_title">Heart rate and motion</string>
+    <string name="ob_sensors_body">To tell when you fall asleep. This data never leaves your watch.</string>
+    <string name="ob_background_title">With the screen off</string>
+    <string name="ob_background_body">Choose \"Allow all the time\" so detection keeps working through the night.</string>
+    <string name="ob_notif_title">Notifications</string>
+    <string name="ob_notif_body">To show that tracking is on, and to ring the alarm.</string>
+    <string name="ob_ready_title">All set</string>
+    <string name="ob_ready_body">Wear the watch in bed, press Start and sleep. The countdown begins once you are asleep.</string>
+    <string name="ob_begin">Let\'s go</string>
 </resources>

@@ -12,6 +12,25 @@ import com.x13labs.dreampulse.service.AlarmService
 
 class AlarmReceiver : BroadcastReceiver() {
 
+    companion object {
+        const val ACTION_ALARM = "com.x13labs.dreampulse.ACTION_ALARM"
+        private const val REQUEST_CODE = 1001
+
+        /** The one alarm PendingIntent: the service and the boot receiver must build the same one. */
+        fun pendingIntent(context: Context): android.app.PendingIntent = android.app.PendingIntent.getBroadcast(
+            context, REQUEST_CODE,
+            Intent(context, AlarmReceiver::class.java).apply { action = ACTION_ALARM },
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        /** Shown as the next alarm by the system, and allowed to ring in Doze. */
+        fun schedule(context: Context, time: Long) {
+            val pi = pendingIntent(context)
+            (context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager)
+                .setAlarmClock(android.app.AlarmManager.AlarmClockInfo(time, pi), pi)
+        }
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("AlarmReceiver", "🔥 ALARM BROADCAST RECEIVED!")
 
