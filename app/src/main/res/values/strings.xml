@@ -57,6 +57,7 @@
     <string name="history_empty">Your nights will show here after the first alarm.</string>
     <string name="history_latency">%1$d min to fall asleep</string>
     <string name="history_battery">Battery used %1$d%%</string>
+    <string name="change_time">Change time</string>
     <string name="tile_label">DreamPulse</string>
     <string name="tile_description">Start sleep and see your alarm</string>
     <string name="tile_start">Start sleep</string>

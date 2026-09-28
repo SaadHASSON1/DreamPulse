@@ -6,7 +6,8 @@
 
 <p align="center">
   <b>The alarm that starts counting when you fall asleep, not when you go to bed.</b><br>
-  A smart sleep alarm for Wear OS · by X13LABS
+  A smart sleep alarm for Wear OS · by X13LABS<br>
+  <a href="https://saadhasson1.github.io/DreamPulse/"><b>Website</b></a> · <a href="https://saadhasson1.github.io/DreamPulse/privacy-policy.html">Privacy policy</a>
 </p>
 
 <p align="center">
@@ -19,7 +20,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/showcase.png" width="100%" alt="DreamPulse on a Galaxy Watch8: setup, duration wheels, sunrise alarm, Turkish setup">
+  <img src="docs/screenshots/showcase-en.png" width="100%" alt="DreamPulse on a Galaxy Watch8: setup, duration wheels, waiting for sleep, sunrise alarm, history">
 </p>
 
 ---
@@ -58,7 +59,7 @@ All logic lives in [`SleepDetector`](app/src/main/java/com/x13labs/dreampulse/do
 
 ## Privacy
 
-DreamPulse has **no internet permission**. Heart rate, motion and sleep history never leave the watch. See the [privacy policy](privacy-policy.html).
+DreamPulse has **no internet permission**. Heart rate, motion and sleep history never leave the watch. See the [privacy policy](https://saadhasson1.github.io/DreamPulse/privacy-policy.html).
 
 ## Build
 
@@ -104,6 +105,8 @@ Wear OS 3 and later (Android 11+), tested on a Galaxy Watch8 (Wear OS 6). Needs 
 - **ملخّص الصبح وسجل آخر 7 ليالي.**
 - **عربي كامل** من اليمين لليسار، وتركي وإنجليزي.
 - **بدون إنترنت:** كل البيانات بتضل على ساعتك.
+
+<p align="center"><img src="docs/screenshots/showcase-ar.png" width="100%" alt="شاشات DreamPulse بالعربي"></p>
 
 </div>
 

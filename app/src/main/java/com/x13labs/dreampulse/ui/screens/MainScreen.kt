@@ -324,7 +324,7 @@ private fun SettingsScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit,
             }
             item {
                 SettingRow(
-                    label = stringResource(R.string.wake_by_label),
+                    label = stringResource(R.string.change_time),
                     value = formatMinutesOfDay(context, deadlineMin),
                     onClick = onEditDeadline,
                 )

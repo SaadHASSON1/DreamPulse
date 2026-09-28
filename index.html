@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DreamPulse: the smart sleep alarm for Wear OS</title>
+<meta name="description" content="DreamPulse starts your alarm countdown when you actually fall asleep, not when you go to bed. A sleep alarm for Wear OS watches, in English, Arabic and Turkish.">
+<meta property="og:title" content="DreamPulse: the smart sleep alarm for Wear OS">
+<meta property="og:description" content="The alarm that starts counting when you fall asleep.">
+<meta property="og:image" content="https://saadhasson1.github.io/DreamPulse/docs/screenshots/showcase-en.png">
+<link rel="icon" href="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Noto+Kufi+Arabic:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #0B1026; --deep: #05070F; --track: #1E2548; --track-dim: #141A33;
+    --moon: #AFA9EC; --moon-light: #EEEDFE; --moon-mid: #7F77DD; --moon-deep: #534AB7;
+    --muted: #8A8FB0; --sun: #FAC775; --calm: #5DCAA5;
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  html[lang="ar"] { --font: "Noto Kufi Arabic", "Inter", system-ui, sans-serif; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--sky); color: var(--moon-light); font-family: var(--font); line-height: 1.65; overflow-x: hidden; }
+  a { color: var(--moon); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  /* language switch: text in both languages lives in the page, one is shown */
+  html[lang="en"] [data-l="ar"], html[lang="ar"] [data-l="en"] { display: none !important; }
+
+  /* stars */
+  .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(1px 1px at 12% 18%, #ffffff55, transparent), radial-gradient(1px 1px at 72% 12%, #ffffff44, transparent),
+      radial-gradient(1px 1px at 40% 62%, #ffffff33, transparent), radial-gradient(1px 1px at 88% 48%, #ffffff44, transparent),
+      radial-gradient(1px 1px at 22% 82%, #ffffff33, transparent), radial-gradient(1px 1px at 58% 30%, #ffffff22, transparent),
+      radial-gradient(1px 1px at 6% 52%, #ffffff33, transparent), radial-gradient(1px 1px at 94% 86%, #ffffff33, transparent); }
+  main, header, footer { position: relative; z-index: 1; }
+
+  header { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; text-decoration: none; color: var(--moon-light); }
+  .brand img { width: 34px; height: 34px; border-radius: 50%; }
+  .lang { display: flex; gap: 4px; background: var(--track-dim); border-radius: 999px; padding: 4px; }
+  .lang button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+  .lang button[aria-pressed="true"] { background: var(--moon-deep); color: var(--moon-light); }
+
+  .hero { text-align: center; padding: 56px 0 24px; }
+  .eyebrow { color: var(--moon-mid); font-size: 14px; letter-spacing: .08em; text-transform: uppercase; }
+  html[lang="ar"] .eyebrow { letter-spacing: 0; text-transform: none; }
+  h1 { font-size: clamp(34px, 6vw, 60px); line-height: 1.12; margin: 12px auto 16px; max-width: 16ch; font-weight: 700; }
+  h1 em { font-style: normal; color: var(--moon); }
+  .lead { color: var(--muted); font-size: clamp(16px, 2vw, 19px); max-width: 60ch; margin: 0 auto; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 999px; text-decoration: none; font-weight: 500; }
+  .btn.primary { background: var(--moon-deep); color: var(--moon-light); }
+  .btn.ghost { border: 1px solid var(--track); color: var(--moon-light); }
+  .showcase { margin: 40px auto 0; max-width: 100%; }
+  .showcase img { width: 100%; height: auto; display: block; }
+
+  section { padding: 64px 0; }
+  h2 { font-size: clamp(24px, 3.4vw, 34px); margin: 0 0 12px; text-align: center; }
+  .sub { color: var(--muted); text-align: center; max-width: 62ch; margin: 0 auto 36px; }
+
+  .compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .card { background: var(--track-dim); border: 1px solid var(--track); border-radius: 18px; padding: 22px; }
+  .card h3 { margin: 0 0 8px; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .timeline { margin-top: 14px; height: 10px; border-radius: 5px; background: var(--track); overflow: hidden; display: flex; }
+  .timeline span { display: block; height: 100%; }
+  .card.good { border-color: var(--moon-deep); }
+
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .feature .icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--track); margin-bottom: 12px; color: var(--moon); }
+
+  .steps { counter-reset: s; display: grid; gap: 12px; max-width: 760px; margin: 0 auto; padding: 0; list-style: none; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; background: var(--track-dim); border-radius: 16px; padding: 16px 18px; }
+  .steps li::before { content: counter(s); width: 32px; height: 32px; border-radius: 50%; background: var(--moon-deep); display: grid; place-items: center; font-weight: 700; }
+  .steps b { display: block; }
+  .steps span { color: var(--muted); font-size: 15px; }
+  .proof { margin: 22px auto 0; max-width: 760px; text-align: center; color: var(--calm); font-size: 15px; }
+
+  .tabs { display: flex; gap: 6px; justify-content: center; margin-bottom: 22px; }
+  .tabs button { border: 1px solid var(--track); background: transparent; color: var(--muted); font: inherit; padding: 6px 16px; border-radius: 999px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--track); color: var(--moon-light); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 18px; }
+  .gallery figure { margin: 0; text-align: center; }
+  .gallery img { width: 100%; height: auto; }
+  .gallery figcaption { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+  .privacy { text-align: center; }
+  .privacy .big { font-size: clamp(22px, 3vw, 30px); font-weight: 700; margin: 0 0 8px; }
+  .chips { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+  .chip { background: var(--track-dim); border: 1px solid var(--track); color: var(--moon); font-size: 13px; padding: 6px 12px; border-radius: 999px; }
+
+  footer { border-top: 1px solid var(--track-dim); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 560px) {
+    section { padding: 48px 0; }
+    .hero { padding-top: 32px; }
+    .steps li { grid-template-columns: 32px 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="stars" aria-hidden="true"></div>
+
+<header class="wrap">
+  <a class="brand" href="#"><img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" alt="">DreamPulse</a>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" data-set-lang="en" aria-pressed="true">English</button>
+    <button type="button" data-set-lang="ar" aria-pressed="false">العربية</button>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div class="eyebrow"><span data-l="en">Sleep alarm for Wear OS</span><span data-l="ar">منبّه نوم لساعات Wear OS</span></div>
+    <h1>
+      <span data-l="en">The alarm that starts counting <em>when you fall asleep</em></span>
+      <span data-l="ar">المنبّه الذي يبدأ العدّ <em>عندما تغفو</em></span>
+    </h1>
+    <p class="lead">
+      <span data-l="en">Ask for 7 hours of sleep, get 7 hours of sleep. DreamPulse reads your heart rate and movement, waits until you are really asleep, and only then starts the countdown.</span>
+      <span data-l="ar">اطلب 7 ساعات نوم، واحصل على 7 ساعات نوم. يقرأ DreamPulse نبض قلبك وحركتك، وينتظر حتى تغفو فعلاً، وعندها فقط يبدأ العدّ.</span>
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/SaadHASSON1/DreamPulse"><span data-l="en">View on GitHub</span><span data-l="ar">المشروع على GitHub</span></a>
+      <a class="btn ghost" href="#how"><span data-l="en">How it works</span><span data-l="ar">كيف يعمل</span></a>
+    </div>
+    <div class="showcase">
+      <img data-l="en" src="docs/screenshots/showcase-en.png" alt="DreamPulse screens on a Galaxy Watch8: setup, duration wheels, waiting for sleep, sunrise alarm, history">
+      <img data-l="ar" src="docs/screenshots/showcase-ar.png" alt="شاشات DreamPulse على ساعة Galaxy Watch8">
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2><span data-l="en">Why an ordinary alarm shortens your night</span><span data-l="ar">لماذا ينقص المنبّه العادي من نومك</span></h2>
+    <p class="sub"><span data-l="en">Every alarm starts counting the moment you set it, so the time it takes you to fall asleep comes out of your sleep.</span><span data-l="ar">كل منبّه يبدأ العدّ لحظة ضبطه، فالوقت الذي تحتاجه لتغفو يُقتطع من نومك.</span></p>
+    <div class="compare">
+      <div class="card">
+        <h3><span data-l="en">Ordinary alarm, 8 hours</span><span data-l="ar">منبّه عادي، 8 ساعات</span></h3>
+        <p><span data-l="en">40 minutes to fall asleep, 7 h 20 of actual sleep.</span><span data-l="ar">40 دقيقة حتى تغفو، و7 ساعات و20 دقيقة نوم فعلي.</span></p>
+        <div class="timeline" aria-hidden="true"><span style="width:8.3%;background:var(--muted)"></span><span style="width:91.7%;background:var(--moon-deep)"></span></div>
+      </div>
+      <div class="card good">
+        <h3><span data-l="en">DreamPulse, 8 hours</span><span data-l="ar">DreamPulse، 8 ساعات</span></h3>
+        <p><span data-l="en">The countdown starts once you are asleep: a full 8 hours of sleep.</span><span data-l="ar">يبدأ العدّ بعد أن تغفو: 8 ساعات نوم كاملة.</span></p>
+        <div class="timeline" aria-hidden="true"><span style="width:7.7%;background:var(--track)"></span><span style="width:92.3%;background:var(--moon)"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2><span data-l="en">Everything a night needs</span><span data-l="ar">كل ما تحتاجه ليلتك</span></h2>
+    <p class="sub"><span data-l="en">Made for the watch: big targets, dim night colours, and nothing that fails silently.</span><span data-l="ar">مصمّم للساعة: عناصر كبيرة، وألوان ليلية هادئة، ولا شيء يفشل بصمت.</span></p>
+    <div class="features">
+      <div class="card feature"><div class="icon" aria-hidden="true">☾</div><h3><span data-l="en">Sleep-onset countdown</span><span data-l="ar">العدّ من لحظة الغفوة</span></h3><p><span data-l="en">Heart rate and stillness tell when you fell asleep; the alarm is set from there.</span><span data-l="ar">النبض والسكون يحدّدان متى غفوت، ومن هناك يُضبط المنبّه.</span></p></div>
+      <div class="card feature"><div class="icon" aria-hidden="true">⛨</div><h3><span data-l="en">Backup alarm</span><span data-l="ar">منبّه احتياطي</span></h3><p><span data-l="en">Set the moment you press Start, so you wake up even if sleep is never detected.</span><span data-l="ar">يُضبط لحظة الضغط على ابدأ، فتستيقظ حتى لو لم يُكتشف النوم.</span></p></div>
+      <div class="card feature"><div class="icon" aria-hidden="true">◷</div><h3><span data-l="en">Wake-by time</span><span data-l="ar">موعد استيقاظ إجباري</span></h3><p><span data-l="en">A hard limit, like "never after 07:00", whatever time you fell asleep.</span><span data-l="ar">حدّ أقصى مثل "ليس بعد السابعة"، مهما تأخرت في النوم.</span></p></div>
+      <div class="card feature"><div class="icon" aria-hidden="true">≈</div><h3><span data-l="en">Smart Wake</span><span data-l="ar">استيقاظ ذكي</span></h3><p><span data-l="en">In the last 15 minutes, a real turn-over in light sleep rings the alarm early. A twitch does not.</span><span data-l="ar">في آخر ربع ساعة، التقلّب في النوم الخفيف يوقظك مبكراً. الرعشة الواحدة لا.</span></p></div>
+      <div class="card feature"><div class="icon" aria-hidden="true">☀</div><h3><span data-l="en">Sunrise alarm</span><span data-l="ar">منبّه الشروق</span></h3><p><span data-l="en">The screen warms up like dawn. Hold anywhere, or shake your wrist, to stop.</span><span data-l="ar">تضيء الشاشة تدريجياً كالفجر. اضغط مطوّلاً أو هزّ يدك للإيقاف.</span></p></div>
+      <div class="card feature"><div class="icon" aria-hidden="true">▤</div><h3><span data-l="en">Morning summary and history</span><span data-l="ar">ملخّص الصباح والسجل</span></h3><p><span data-l="en">Time slept, time to fall asleep, battery used. Last 7 nights on the watch.</span><span data-l="ar">مدة النوم، والوقت حتى غفوت، واستهلاك البطارية. آخر 7 ليالٍ على الساعة.</span></p></div>
+      <div class="card feature"><div class="icon" aria-hidden="true">▣</div><h3><span data-l="en">Tile and watch-face chip</span><span data-l="ar">Tile وأيقونة على وجه الساعة</span></h3><p><span data-l="en">Start from a Tile; a moon on the watch face while a session runs.</span><span data-l="ar">ابدأ من الـ Tile، ويظهر قمر على وجه الساعة أثناء الجلسة.</span></p></div>
+      <div class="card feature"><div class="icon" aria-hidden="true">ع</div><h3><span data-l="en">English, Arabic, Turkish</span><span data-l="ar">الإنجليزية والعربية والتركية</span></h3><p><span data-l="en">Full right-to-left layout in Arabic, with an in-app language picker.</span><span data-l="ar">واجهة كاملة من اليمين لليسار بالعربية، مع اختيار اللغة من داخل التطبيق.</span></p></div>
+    </div>
+  </section>
+
+  <section class="wrap" id="how">
+    <h2><span data-l="en">How it knows you are asleep</span><span data-l="ar">كيف يعرف أنك نمت</span></h2>
+    <p class="sub"><span data-l="en">No guesswork from a single signal: movement, heart rate and the watch's own sleep state have to agree.</span><span data-l="ar">لا يعتمد على إشارة واحدة: الحركة ونبض القلب وحالة النوم من الساعة يجب أن تتّفق.</span></p>
+    <ol class="steps">
+      <li><div><b><span data-l="en">A baseline while you are awake</span><span data-l="ar">نبضك وأنت مستيقظ</span></b><span><span data-l="en">The first heart-rate reading after you press Start.</span><span data-l="ar">أول قراءة للنبض بعد الضغط على ابدأ.</span></span></div></li>
+      <li><div><b><span data-l="en">Stillness, only while worn</span><span data-l="ar">السكون، والساعة على معصمك</span></b><span><span data-l="en">A watch left on a table never counts as asleep.</span><span data-l="ar">الساعة الموضوعة على الطاولة لا تُحسب نائمة أبداً.</span></span></div></li>
+      <li><div><b><span data-l="en">A falling heart rate</span><span data-l="ar">نبض ينخفض</span></b><span><span data-l="en">10 still minutes with a 15% drop, or 15 minutes with 5%. The watch's own sleep signal is accepted once stillness confirms it.</span><span data-l="ar">10 دقائق سكون مع انخفاض 15%، أو 15 دقيقة مع 5%. وتُقبل إشارة النوم من الساعة عندما يؤكّدها السكون.</span></span></div></li>
+      <li><div><b><span data-l="en">The right onset time</span><span data-l="ar">وقت الغفوة الصحيح</span></b><span><span data-l="en">Halfway between your last movement and the first low heart-rate reading, not the moment the rule fired.</span><span data-l="ar">في منتصف المسافة بين آخر حركة وأول قراءة نبض منخفضة، وليس لحظة التأكّد.</span></span></div></li>
+    </ol>
+    <p class="proof"><span data-l="en">On a recorded test night, DreamPulse puts sleep onset at 04:54, the same minute Samsung Health reported.</span><span data-l="ar">في ليلة اختبار مسجّلة، حدّد DreamPulse وقت الغفوة 04:54، الدقيقة نفسها التي سجّلها Samsung Health.</span></p>
+  </section>
+
+  <section class="wrap">
+    <h2><span data-l="en">Every screen</span><span data-l="ar">كل الشاشات</span></h2>
+    <p class="sub"><span data-l="en">Screenshots from a Galaxy Watch8.</span><span data-l="ar">لقطات من ساعة Galaxy Watch8.</span></p>
+    <div class="tabs" role="tablist" aria-label="Screenshot language">
+      <button type="button" role="tab" data-gallery="en" aria-selected="true">English</button>
+      <button type="button" role="tab" data-gallery="ar" aria-selected="false">العربية</button>
+      <button type="button" role="tab" data-gallery="tr" aria-selected="false">Türkçe</button>
+    </div>
+    <div class="gallery" id="gallery"></div>
+  </section>
+
+  <section class="wrap privacy">
+    <p class="big"><span data-l="en">No internet permission. Your nights stay on your wrist.</span><span data-l="ar">بدون إذن إنترنت. لياليك تبقى على معصمك.</span></p>
+    <p class="sub"><span data-l="en">Heart rate, movement and sleep history are read and kept on the watch only, never uploaded.</span><span data-l="ar">النبض والحركة وسجل النوم تُقرأ وتُحفظ على الساعة فقط، ولا تُرفع إلى أي مكان.</span></p>
+    <div class="chips">
+      <span class="chip"><span data-l="en">No account</span><span data-l="ar">بدون حساب</span></span>
+      <span class="chip"><span data-l="en">No ads</span><span data-l="ar">بدون إعلانات</span></span>
+      <span class="chip"><span data-l="en">No tracking</span><span data-l="ar">بدون تتبّع</span></span>
+      <span class="chip"><span data-l="en">No cloud</span><span data-l="ar">بدون سحابة</span></span>
+    </div>
+    <p style="margin-top:22px"><a href="privacy-policy.html"><span data-l="en">Read the privacy policy</span><span data-l="ar">اقرأ سياسة الخصوصية</span></a></p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Saad HASSON · X13LABS</span>
+    <span><a href="https://github.com/SaadHASSON1/DreamPulse">GitHub</a> · <a href="privacy-policy.html"><span data-l="en">Privacy</span><span data-l="ar">الخصوصية</span></a> · <a href="mailto:contact@x13labs.com">contact@x13labs.com</a></span>
+  </div>
+</footer>
+
+<script>
+  var SCREENS = [
+    ["01-setup", "Sleep goal", "مدة النوم", "Uyku hedefi"],
+    ["02-duration", "Duration wheels", "عجلات المدة", "Süre seçimi"],
+    ["05-waiting", "Waiting for sleep", "بانتظار النوم", "Uyku bekleniyor"],
+    ["06-alarm", "Alarm", "المنبّه", "Alarm"],
+    ["07-sunrise", "Sunrise", "الشروق", "Gün doğumu"],
+    ["08-summary", "Morning summary", "ملخّص الصباح", "Sabah özeti"],
+    ["03-history", "Last nights", "آخر الليالي", "Son geceler"],
+    ["04-settings", "Settings", "الإعدادات", "Ayarlar"]
+  ];
+  var IDX = { en: 1, ar: 2, tr: 3 };
+
+  function renderGallery(lang) {
+    var g = document.getElementById("gallery");
+    g.innerHTML = "";
+    SCREENS.forEach(function (s) {
+      var f = document.createElement("figure");
+      var img = document.createElement("img");
+      img.src = "docs/screenshots/" + lang + "/" + s[0] + ".png";
+      img.alt = s[IDX[lang]];
+      img.loading = "lazy";
+      img.width = 360; img.height = 360;
+      var c = document.createElement("figcaption");
+      c.textContent = s[IDX[lang]];
+      if (lang === "ar") c.dir = "rtl";
+      f.appendChild(img); f.appendChild(c); g.appendChild(f);
+    });
+    document.querySelectorAll("[data-gallery]").forEach(function (b) {
+      b.setAttribute("aria-selected", String(b.dataset.gallery === lang));
+    });
+  }
+
+  function setLang(lang) {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.setLang === lang));
+    });
+    try { localStorage.setItem("dp-lang", lang); } catch (e) {}
+    renderGallery(lang);
+  }
+
+  document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.dataset.setLang); });
+  });
+  document.querySelectorAll("[data-gallery]").forEach(function (b) {
+    b.addEventListener("click", function () { renderGallery(b.dataset.gallery); });
+  });
+
+  var saved = null;
+  try { saved = localStorage.getItem("dp-lang"); } catch (e) {}
+  var initial = saved || ((navigator.language || "").slice(0, 2) === "ar" ? "ar" : "en");
+  setLang(initial);
+</script>
+</body>
+</html>
