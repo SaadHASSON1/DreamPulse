@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="112" alt="DreamPulse">
+  <img src="web/mark.png" width="112" alt="DreamPulse">
 </p>
 
 <h1 align="center">DreamPulse</h1>

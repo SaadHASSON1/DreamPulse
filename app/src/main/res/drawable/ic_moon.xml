@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The DreamPulse crescent and its star, for notifications, the watch-face chip and the tile.
+     Same drawing as the launcher icon (ic_launcher_foreground), scaled to 24. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -6,5 +8,8 @@
     android:viewportHeight="24">
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M12.3,2.05A10,10 0,1 0,21.95 11.7A7.5,7.5 0,0 1,12.3 2.05Z" />
+        android:pathData="M10.43,3.55A9,9 0,1 0,20.74 15.56A7.94,7.94 0,0 1,10.43 3.55Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17.67,6a1,1 0,1 0,2 0a1,1 0,1 0,-2 0Z" />
 </vector>
