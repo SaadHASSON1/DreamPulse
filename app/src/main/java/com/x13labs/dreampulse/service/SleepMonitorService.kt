@@ -318,8 +318,6 @@ class SleepMonitorService : Service(), SensorEventListener {
             preferencesManager.saveTargetWakeTime(targetWakeTime)
             
             val timeStr = java.text.SimpleDateFormat("HH:mm").format(java.util.Date(targetWakeTime))
-            val confirmTimeStr = java.text.SimpleDateFormat("HH:mm").format(java.util.Date(now))
-            sleepRepository.saveSleepSummary("$confirmTimeStr, $timeStr")
             
             val notification = notificationHelper.buildTracking(
                 getString(com.x13labs.dreampulse.R.string.notif_alarm_set, timeStr),

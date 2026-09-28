@@ -3,10 +3,6 @@ package com.x13labs.dreampulse.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -20,22 +16,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.x13labs.dreampulse.ui.screens.MainScreen
 import com.x13labs.dreampulse.ui.theme.DreamTheme
 import com.x13labs.dreampulse.ui.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlin.math.sqrt
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity(), SensorEventListener {
+class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
-    private var sensorManager: SensorManager? = null
-    private var accelerometer: Sensor? = null
-    private var offBodySensor: Sensor? = null
-    private var heartRateSensor: Sensor? = null
 
     private var pendingStartTracking = false
 
@@ -67,10 +57,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         super.onCreate(savedInstanceState)
 
         Log.d("MainActivity", "onCreate called (Clean Start)")
-        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
-        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        offBodySensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)
-        heartRateSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_HEART_RATE)
 
         setContent {
             DreamTheme {
@@ -159,62 +145,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         pendingStartTracking = false
         viewModel.executeStartTracking()
     }
-
-    override fun onResume() {
-        super.onResume()
-
-        lifecycleScope.launch {
-            viewModel.isTrackingState.collectLatest { active ->
-                if (active) {
-                    offBodySensor?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_NORMAL) }
-                } else {
-                    sensorManager?.unregisterListener(this@MainActivity)
-                }
-            }
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        sensorManager?.unregisterListener(this)
-    }
-
-    override fun onSensorChanged(event: SensorEvent?) {
-        val sensorType = event?.sensor?.type
-
-        if (sensorType == Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT) {
-            val isOnBody = event.values[0] == 1.0f
-            viewModel.updateOnBodyStatus(isOnBody)
-            return
-        }
-
-        if (viewModel.isTrackingState.value) return
-
-        when (sensorType) {
-            Sensor.TYPE_ACCELEROMETER -> {
-                val x = event!!.values[0]
-                val y = event.values[1]
-                val z = event.values[2]
-
-                val magnitude = sqrt(x * x + y * y + z * z) - 9.8f
-                val absMagnitude = if (magnitude < 0) -magnitude else magnitude
-
-                if (absMagnitude > 0.05f) {
-                    viewModel.updateMotion(absMagnitude)
-                } else {
-                    viewModel.updateMotion(0f)
-                }
-            }
-            Sensor.TYPE_HEART_RATE -> {
-                val bpm = event!!.values[0]
-                if (bpm > 0) {
-                    viewModel.updateHeartRate(bpm)
-                }
-            }
-        }
-    }
-
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     private fun showSamsungBatteryBriefingIfNeeded() {
         if (!Build.MANUFACTURER.equals("samsung", ignoreCase = true)) return

@@ -7,11 +7,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
-import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -23,21 +18,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -52,8 +42,6 @@ import androidx.wear.compose.material3.Text
 import com.x13labs.dreampulse.ui.theme.Dream
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlin.math.abs
-import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -141,80 +129,6 @@ fun EdgeRing(
                 center = Offset(center.x + (rr * cos(a)).toFloat(), center.y + (rr * sin(a)).toFloat())
             )
         }
-    }
-}
-
-/**
- * Edge dial: drag along the ring or turn the bezel/crown. [onDrag] gets the raw ring
- * fraction; [onRotaryStep] gets +1/-1 per detent-sized scroll, with a haptic tick.
- */
-@Composable
-fun EdgeDial(
-    fraction: Float,
-    onDrag: (Float) -> Unit,
-    onRotaryStep: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    color: Color = Dream.Moon,
-) {
-    val view = LocalView.current
-    val focus = remember { FocusRequester() }
-    val currentFraction = rememberUpdatedState(fraction)
-    val rotaryAccumulator = remember { floatArrayOf(0f) }
-    LaunchedEffect(Unit) { focus.requestFocus() }
-
-    Box(
-        modifier
-            .fillMaxSize()
-            .onRotaryScrollEvent { e ->
-                rotaryAccumulator[0] += e.verticalScrollPixels
-                val threshold = 48f
-                while (abs(rotaryAccumulator[0]) >= threshold) {
-                    val step = if (rotaryAccumulator[0] > 0) 1 else -1
-                    rotaryAccumulator[0] -= step * threshold
-                    onRotaryStep(step)
-                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                }
-                true
-            }
-            .focusRequester(focus)
-            .focusable()
-            .pointerInput(Unit) {
-                // The ring lies exactly where page swipes start, so decide per gesture:
-                // movement ALONG the ring turns the dial, movement toward the centre is left
-                // unconsumed for the pager / swipe-to-dismiss.
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    val c = Offset(size.width / 2f, size.height / 2f)
-                    if ((down.position - c).getDistance() < size.width * 0.30f) return@awaitEachGesture
-                    var isDial = false
-                    val slopChange = awaitTouchSlopOrCancellation(down.id) { change, over ->
-                        val radial = (change.position - c).let { it / it.getDistance() }
-                        val along = abs(over.x * radial.y - over.y * radial.x)     // tangential part
-                        val across = abs(over.x * radial.x + over.y * radial.y)    // radial part
-                        if (along > across) {
-                            isDial = true
-                            change.consume()
-                        }
-                    }
-                    if (!isDial || slopChange == null) return@awaitEachGesture
-                    drag(slopChange.id) { change ->
-                        val p = change.position - c
-                        var deg = Math.toDegrees(atan2(p.y, p.x).toDouble()).toFloat()
-                        if (deg < 0) deg += 360f
-                        var rel = (deg - RingGeometry.START + 360f) % 360f
-                        if (rel > RingGeometry.SWEEP) {
-                            // In the bottom gap: snap to whichever end is closer
-                            rel = if (rel - RingGeometry.SWEEP < (360f - rel)) RingGeometry.SWEEP else 0f
-                        }
-                        val f = rel / RingGeometry.SWEEP
-                        // Ignore jumps across the gap (e.g. from max straight to min)
-                        if (abs(f - currentFraction.value) < 0.5f) onDrag(f)
-                        change.consume()
-                    }
-                }
-            }
-    ) {
-        EdgeRing(fraction = { fraction }, color = color, track = Dream.Track, knob = true)
     }
 }
 

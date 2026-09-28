@@ -13,3 +13,9 @@ capture.png
 *.class
 bin/
 gen/
+
+# Build outputs and signing
+*.aab
+/app/release/
+*.jks
+*.keystore
