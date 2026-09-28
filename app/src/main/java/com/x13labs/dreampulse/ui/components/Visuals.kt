@@ -59,13 +59,24 @@ fun StarField(modifier: Modifier = Modifier, alpha: Float = 1f) {
     }
 }
 
-/** A flat crescent: a disc with a second, background-coloured disc cut over it. */
+/**
+ * The DreamPulse mark, as in the launcher icon and on the website: a disc with a second,
+ * background-coloured disc cut over it, and a small star in the opening.
+ * Same proportions as ic_launcher_foreground (outer radius 170, inner 150 offset by 70/-60).
+ */
 @Composable
-fun Moon(size: Dp, modifier: Modifier = Modifier, color: Color = Dream.Moon, background: Color = Dream.Sky) {
+fun Moon(
+    size: Dp,
+    modifier: Modifier = Modifier,
+    color: Color = Dream.Moon,
+    background: Color = Dream.Sky,
+    star: Color? = Dream.Sun,
+) {
     Canvas(modifier.size(size)) {
         val r = this.size.minDimension / 2f
         drawCircle(color, radius = r)
-        drawCircle(background, radius = r * 0.86f, center = Offset(center.x + r * 0.42f, center.y - r * 0.26f))
+        drawCircle(background, radius = r * 150f / 170f, center = Offset(center.x + r * 70f / 170f, center.y - r * 60f / 170f))
+        if (star != null) drawCircle(star, radius = r * 0.11f, center = Offset(center.x + r * 0.70f, center.y - r * 0.70f))
     }
 }
 

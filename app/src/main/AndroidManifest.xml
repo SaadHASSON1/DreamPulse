@@ -49,9 +49,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Not exported: only this app opens it (full-screen intent, notification). Exported, any
+             app could send it the "dismiss" action and cancel a running night. -->
         <activity
             android:name=".ui.AlarmActivity"
-            android:exported="true"
+            android:exported="false"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:launchMode="singleInstance"
