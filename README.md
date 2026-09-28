@@ -27,9 +27,9 @@
 
 ## Why
 
-Set an 8-hour alarm, spend 40 minutes falling asleep, and you get 7h20 of sleep. Every ordinary alarm starts counting the moment you set it.
+I sleep after Fajr and I never fall asleep the minute I lie down. Some nights it's 10 minutes, some nights 40, and a normal alarm takes all of that out of my sleep.
 
-DreamPulse waits until you are actually asleep, using the watch's heart-rate and motion sensors, and only then starts the countdown. Ask for 7 hours, get 7 hours.
+So I made DreamPulse for my Galaxy Watch. It watches heart rate and movement and only starts the countdown once I'm actually asleep. Ask for 7 hours, get 7 hours.
 
 ## Features
 
