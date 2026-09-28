@@ -1,115 +1,123 @@
-<p align="center">
-  <img src="web/mark.png" width="112" alt="DreamPulse">
-</p>
+<div align="center">
 
-<h1 align="center">DreamPulse</h1>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="brand/story-dark.svg">
+  <img src="brand/story-light.svg" width="240" alt="دريم بلس: هلال ينتظر نومك، ثم تمتلئ حلقة العدّ ويصير شمس الصباح">
+</picture>
 
-<p align="center">
-  <b>The alarm that starts counting when you fall asleep, not when you go to bed.</b><br>
-  A smart sleep alarm for Wear OS · by X13LABS<br>
-  <a href="https://saadhasson1.github.io/DreamPulse/"><b>Website</b></a> · <a href="https://saadhasson1.github.io/DreamPulse/privacy-policy.html">Privacy policy</a>
-</p>
+# دريم بلس — DreamPulse
 
-<p align="center">
-  <a href="https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml"><img src="https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/Wear%20OS-3%2B-4285F4?logo=wearos&logoColor=white" alt="Wear OS 3+">
-  <img src="https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
-  <img src="https://img.shields.io/badge/Compose-Material%203%20for%20Wear-3DDC84" alt="Compose Material 3">
-  <img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20AR%20%C2%B7%20TR-534AB7" alt="Languages">
-  <img src="https://img.shields.io/badge/network-none-5DCAA5" alt="No network access">
-</p>
+**المنبّه الذي يبدأ العدّ حين تغفو، لا حين تستلقي.**<br>
+منبّه نوم ذكي لساعات Wear OS: ينتظر حتى تنام فعلًا، ثم يعدّ المدة التي طلبتها — وبياناتك لا تغادر ساعتك.
 
-<p align="center">
-  <img src="docs/screenshots/showcase-en.png" width="100%" alt="DreamPulse on a Galaxy Watch7: setup, duration wheels, waiting for sleep, sunrise alarm, history">
-</p>
+[![الإصدار](https://img.shields.io/badge/%D8%A7%D9%84%D8%A5%D8%B5%D8%AF%D8%A7%D8%B1-1.2.0-534AB7)](CHANGELOG.md)
+![Wear OS 3+](https://img.shields.io/badge/Wear%20OS-3%2B-534AB7)
+![No internet](https://img.shields.io/badge/data-on%20your%20watch-E09A2B)
+[![CI](https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml/badge.svg)](https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml)
 
----
+[**⌚ انضم إلى التجربة**](#التثبيت) ·
+[الموقع](https://saadhasson1.github.io/DreamPulse/) ·
+[سجل الإصدارات](CHANGELOG.md) ·
+[سياسة الخصوصية](https://saadhasson1.github.io/DreamPulse/privacy-policy.html) ·
+[English](#english)
 
-## Why
-
-I sleep after Fajr and I never fall asleep the minute I lie down. Some nights it's 10 minutes, some nights 40, and a normal alarm takes all of that out of my sleep.
-
-So I made DreamPulse for my Galaxy Watch. It watches heart rate and movement and only starts the countdown once I'm actually asleep. Ask for 7 hours, get 7 hours.
-
-## Features
-
-| | |
-|---|---|
-| **Sleep-onset countdown** | The alarm is set from the moment you fall asleep, not from when you press Start. |
-| **Backup alarm from the first second** | Scheduled as soon as you start (goal + 1 h), so you wake up even if sleep is never detected or the watch restarts. |
-| **Wake-by time** | Optional hard limit, e.g. "never later than 07:00", whatever time you fell asleep. |
-| **Smart Wake** | In the last 15 minutes, a real turn-over (two separate movements) rings the alarm early, while you are in light sleep. A single twitch does not. |
-| **Sunrise alarm** | The screen warms from night to dawn; hold anywhere or shake your wrist to stop. |
-| **Morning summary and history** | Time slept, time it took to fall asleep (not counted against your goal), minutes woken early, battery used. Last 7 nights. |
-| **Made for the watch** | Wheel pickers, swipe navigation, a Tile, an Ongoing Activity chip on the watch face, haptics, Material 3 for Wear. |
-| **Three languages** | English, Arabic (full right-to-left layout) and Turkish, with an in-app language picker. |
-
-## How sleep is detected
-
-All logic lives in [`SleepDetector`](app/src/main/java/com/x13labs/dreampulse/domain/SleepDetector.kt), a pure Kotlin class covered by unit tests, including tests built from a real recorded night.
-
-1. **Awake baseline:** the first heart-rate reading after you press Start.
-2. **Asleep when:**
-   - 10 minutes still and the heart rate is at least 15% below the baseline, or
-   - 15 minutes still and at least 5% below it, or
-   - the watch's own sleep signal (Health Services), confirmed by 5 minutes of stillness, or
-   - 25 minutes of complete stillness, when no heart rate is available.
-3. **Only while worn:** with the watch off the wrist, detection pauses and restarts when you put it back on.
-4. **Onset time:** halfway between your last movement and the first low heart-rate reading. Replaying the first recorded test night, this gives 04:54, the same minute Samsung Health reported.
-
-## Privacy
-
-DreamPulse has **no internet permission**. Heart rate, motion and sleep history never leave the watch. See the [privacy policy](https://saadhasson1.github.io/DreamPulse/privacy-policy.html).
-
-## Build
-
-Requirements: JDK 17+ and the Android SDK (compileSdk 37). The Gradle wrapper is included.
-
-```bash
-./gradlew testDebugUnitTest     # unit tests
-./gradlew assembleDebug         # debug build
-./gradlew assembleProfiling     # release configuration, signed with the debug key (for performance testing)
-./gradlew bundleRelease         # Play Store bundle (needs your upload key)
-```
-
-Install on a watch over Wi-Fi: enable **Developer options → Wireless debugging**, pair with `adb pair <ip:port>`, then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
-
-## Project layout
-
-```
-app/src/main/java/com/x13labs/dreampulse/
-├── domain/        SleepDetector, SmartWakeGate (pure, unit-tested)
-├── service/       SleepMonitorService (sensors, detection), AlarmService (ringing)
-├── receiver/      AlarmReceiver, HeartbeatReceiver (keeps the session alive), BootReceiver
-├── data/          DataStore preferences, night history, Health Services
-├── tile/          Tile shown next to the watch face
-└── ui/            Compose screens: setup, tracking, alarm, summary, history, settings
-```
-
-## Compatibility
-
-Wear OS 3 and later (Android 11+), tested on a Galaxy Watch7 (Wear OS 6). Needs a heart-rate sensor.
-
----
-
-<div dir="rtl">
-
-## بالعربية
-
-أنام بعد صلاة الفجر، ولا أغفو بمجرد أن أضع رأسي على الوسادة، والمنبّه العادي يقتطع تلك الدقائق من نومي. لذلك صنعت **DreamPulse** لساعات Wear OS: لا يبدأ العدّ لحظة ضبطه، بل ينتظر **حتى تغفو فعلاً** (من نبض القلب والحركة)، ثم يعدّ المدة التي طلبتها. طلبت سبع ساعات؟ تنام سبع ساعات حقيقية.
-
-- **منبّه احتياطي** منذ اللحظة الأولى، فتستيقظ حتى لو لم يُكتشف النوم أو أُعيد تشغيل الساعة.
-- **موعد استيقاظ إلزامي** اختياري، مثل «ليس بعد السابعة».
-- **استيقاظ ذكي** في الربع ساعة الأخيرة إن تقلّبت في نوم خفيف.
-- **منبّه شروق** يتوقف بضغطة مطوّلة أو بهزّة من يدك.
-- **ملخّص الصباح وسجل آخر سبع ليالٍ.**
-- **واجهة عربية كاملة** من اليمين إلى اليسار، مع التركية والإنجليزية.
-- **بلا إنترنت:** تبقى بياناتك كلها على ساعتك.
-
-<p align="center"><img src="docs/screenshots/showcase-ar.png" width="100%" alt="شاشات DreamPulse بالعربي"></p>
+<img src="docs/screenshots/showcase-ar.png" width="100%" alt="دريم بلس على Galaxy Watch7: الإعداد، مدة النوم، انتظار النوم، منبّه الشروق، السجل">
 
 </div>
 
 ---
 
-<p align="center">© 2026 Saad HASSON · X13LABS. All rights reserved.</p>
+## ما هو دريم بلس؟
+
+أنام بعد صلاة الفجر، ولا أغفو بمجرد أن أضع رأسي على الوسادة: عشر دقائق في ليلة، وأربعون في أخرى. والمنبّه العادي يقتطع تلك الدقائق من نومي.
+
+**دريم بلس يراقب نبض القلب والحركة، ولا يبدأ العدّ إلا حين تنام فعلًا.** طلبت سبع ساعات؟ تنام سبع ساعات حقيقية.
+
+| | |
+|---|---|
+| 🌙 **العدّ من لحظة النوم** | يُضبط المنبّه من اللحظة التي تغفو فيها، لا من لحظة الضغط على «ابدأ». |
+| 🛟 **منبّه احتياطي من الثانية الأولى** | يُجدوَل فور البدء (المدة + ساعة)، فتستيقظ حتى لو لم يُكتشف النوم أو أُعيد تشغيل الساعة. |
+| ⏰ **موعد استيقاظ إلزامي** | حدّ اختياري مثل «ليس بعد السابعة»، مهما تأخّر نومك. |
+| 🧠 **استيقاظ ذكي** | في الربع ساعة الأخيرة، إن تقلّبت فعلًا (حركتان منفصلتان) يرنّ المنبّه وأنت في نوم خفيف. رعشة واحدة لا تكفي. |
+| ☀️ **منبّه شروق** | تدفأ الشاشة من الليل إلى الفجر؛ اضغط مطوّلًا أو هزّ يدك للإيقاف. |
+| 📊 **ملخّص الصباح والسجل** | كم نمت، وكم استغرقت حتى غفوت (لا يُحسب من هدفك)، وكم دقيقة استيقظت مبكرًا، واستهلاك البطارية. آخر سبع ليالٍ. |
+| 🌍 **ثلاث لغات** | العربية بواجهة كاملة من اليمين إلى اليسار، والإنجليزية، والتركية، مع اختيار اللغة من داخل التطبيق. |
+
+## خصوصيتك أولًا
+
+- **لا إذن إنترنت أصلًا.** التطبيق لا يستطيع إرسال أي شيء، ولا يصلنا شيء من بياناتك.
+- نبض القلب والحركة وسجل النوم **تبقى على ساعتك فقط**.
+- **لا حساب ولا تسجيل ولا إعلانات.**
+
+التفاصيل الكاملة: [سياسة الخصوصية](https://saadhasson1.github.io/DreamPulse/privacy-policy.html).
+
+## كيف يُكتشف النوم؟
+
+المنطق كله في [`SleepDetector`](app/src/main/java/com/x13labs/dreampulse/domain/SleepDetector.kt)، صنف Kotlin خالص تغطيه اختبارات، منها اختبارات مبنية على ليلة حقيقية مسجّلة.
+
+1. **خط الأساس:** أول قراءة نبض بعد الضغط على «ابدأ».
+2. **تُعدّ نائمًا إذا:**
+   - سكنتَ عشر دقائق ونبضك أقل من خط الأساس بـ 15% على الأقل، أو
+   - سكنتَ ربع ساعة ونبضك أقل بـ 5% على الأقل، أو
+   - أشارت الساعة نفسها إلى النوم (Health Services) وأكّده سكون خمس دقائق، أو
+   - سكنتَ سكونًا تامًّا 25 دقيقة، حين لا يتوفر النبض.
+3. **فقط والساعة على معصمك:** إن خلعتها يتوقف الاكتشاف، ويبدأ من جديد حين تلبسها.
+4. **وقت الغفوة:** منتصف المسافة بين آخر حركة وأول قراءة نبض منخفضة. في أول ليلة مسجّلة أعطى 04:54، الدقيقة نفسها التي سجّلها Samsung Health.
+
+## التثبيت
+
+دريم بلس الآن في **تجربة مغلقة** على Google Play، والانضمام مجاني:
+
+1. انضم إلى مجموعة المجرّبين: [**groups.google.com/g/dreampulse**](https://groups.google.com/g/dreampulse) بحساب Google نفسه الذي على ساعتك.
+2. افتح [**رابط التجربة**](https://play.google.com/apps/testing/com.x13labs.dreampulse) واضغط «أصبح مختبِرًا».
+3. ثبّت دريم بلس من متجر Play على الساعة، وافتحه، واتبع شاشات الترحيب لمنح الأذونات.
+
+**المتطلبات:** ساعة Wear OS 3 أو أحدث فيها حسّاس نبض. جُرّب على Galaxy Watch7 (Wear OS 6).
+
+> ملاحظاتك تصنع الفرق: راسلنا على [contact@x13labs.com](mailto:contact@x13labs.com).
+
+## ما في هذا المستودع
+
+شيفرة التطبيق كاملة، و**موقع دريم بلس** (GitHub Pages).
+
+```
+app/src/main/java/com/x13labs/dreampulse/
+├── domain/         SleepDetector و SmartWakeGate (منطق خالص تغطيه الاختبارات)
+├── service/        خدمة مراقبة النوم، وخدمة رنين المنبّه
+├── receiver/       المنبّهات، وإبقاء الجلسة حيّة، والعودة بعد إعادة التشغيل
+├── data/           الإعدادات، وسجل الليالي، و Health Services
+├── tile/           البطاقة بجانب واجهة الساعة
+└── ui/             الشاشات: الترحيب، الإعداد، المتابعة، المنبّه، الملخّص، السجل، الإعدادات
+index.html          الصفحة الرئيسية وقصة الهلال الذي يصير شمسًا
+web/                أنماط الموقع وحركته (GSAP + MorphSVG)
+brand/              الحركة المستقلة لهذا الملف
+tools/story_svg.py  يولّد brand/story-*.svg
+```
+
+**البناء:** JDK 17 و Android SDK، والـ Gradle wrapper مرفق.
+
+```bash
+./gradlew testDebugUnitTest     # الاختبارات
+./gradlew assembleDebug         # نسخة تجريبية
+./gradlew bundleRelease         # حزمة المتجر (تحتاج مفتاح الرفع)
+```
+
+---
+
+<div id="english" dir="ltr">
+
+## English
+
+**DreamPulse** is a smart sleep alarm for **Wear OS**. It watches heart rate and motion and starts the countdown only once you are actually asleep: ask for 7 hours, get 7 hours. A backup alarm is armed from the first second, an optional wake-by time caps the night, Smart Wake rings early on a real turn-over in the last 15 minutes, and a sunrise screen wakes you gently. Morning summary and 7-night history; English, Arabic (full right-to-left) and Turkish.
+
+It has **no internet permission**: heart rate, motion and sleep history never leave the watch.
+
+**Join the closed test:** join [the testers group](https://groups.google.com/g/dreampulse), then open [the testing link](https://play.google.com/apps/testing/com.x13labs.dreampulse) and install from Google Play on your watch.
+
+[Website](https://saadhasson1.github.io/DreamPulse/) · [Privacy Policy](https://saadhasson1.github.io/DreamPulse/privacy-policy.html) · [Changelog](CHANGELOG.md) · Contact: contact@x13labs.com
+
+<img src="docs/screenshots/showcase-en.png" width="100%" alt="DreamPulse on a Galaxy Watch7: setup, duration wheels, waiting for sleep, sunrise alarm, history">
+
+</div>
+
+<div align="center"><sub>© 2026 دريم بلس — DreamPulse · X13LABS. جميع الحقوق محفوظة.</sub></div>
