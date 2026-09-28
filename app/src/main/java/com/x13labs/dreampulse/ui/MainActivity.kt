@@ -1,26 +1,35 @@
 package com.x13labs.dreampulse.ui
 
 import android.Manifest
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.net.Uri
-import androidx.core.content.ContextCompat
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
+import com.x13labs.dreampulse.R
+import com.x13labs.dreampulse.data.local.BootAlarmStore
 import com.x13labs.dreampulse.ui.screens.MainScreen
+import com.x13labs.dreampulse.ui.screens.OnboardingScreen
+import com.x13labs.dreampulse.ui.screens.OnboardingStep
 import com.x13labs.dreampulse.ui.theme.DreamTheme
 import com.x13labs.dreampulse.ui.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -28,148 +37,154 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
     private var pendingStartTracking = false
+    /** Permission rounds for the current press of Start (foreground first, then background). */
+    private var startRequestRounds = 0
+    private var showOnboarding by mutableStateOf(false)
+    private var afterOnboardingPermission: (() -> Unit)? = null
 
-    // Launcher للأذونات عند بداية التطبيق (بدون تشغيل tracking)
-    private val startupPermissionLauncher = registerForActivityResult(
+    private val prefs by lazy { getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
+
+    /** Permission asked by one onboarding step: move on whatever the answer. */
+    private val onboardingPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        Log.d("MainActivity", "Startup permissions result: $permissions")
-        // طلب BODY_SENSORS_BACKGROUND بعد منح الأذونات الأساسية
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS_BACKGROUND)
-                != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(arrayOf(Manifest.permission.BODY_SENSORS_BACKGROUND))
-            }
-        }
+        Log.d("MainActivity", "Onboarding permissions result: $permissions")
+        afterOnboardingPermission?.invoke()
+        afterOnboardingPermission = null
     }
 
-    // Launcher للأذونات عند الضغط على Start Tracking
+    /** Permissions checked again when Start is pressed. */
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         Log.d("MainActivity", "Permissions result: $permissions")
-        if (pendingStartTracking) {
-            handleStartTrackingRequest(afterRequest = true)
-        }
+        if (pendingStartTracking) handleStartTrackingRequest()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        Log.d("MainActivity", "onCreate called (Clean Start)")
+        // Never in the way of a running night (e.g. right after updating from an older version)
+        showOnboarding = !prefs.getBoolean(KEY_ONBOARDING_DONE, false) && BootAlarmStore.target(this) == 0L
+        val steps = onboardingSteps()
 
         setContent {
             DreamTheme {
-                MainScreen(viewModel)
+                val tracking by viewModel.isTrackingState.collectAsState()
+                if (showOnboarding && !tracking) {
+                    OnboardingScreen(steps, onAction = ::runOnboardingStep, onFinish = ::finishOnboarding)
+                } else {
+                    MainScreen(viewModel)
+                }
             }
         }
-
-        // ← طلب الأذونات فور فتح التطبيق
-        requestStartupPermissions()
-        showSamsungBatteryBriefingIfNeeded()
 
         lifecycleScope.launch {
             viewModel.needsPermissionCheck.collect {
                 Log.d("MainActivity", "Received permission check request from ViewModel")
                 pendingStartTracking = true
+                startRequestRounds = 0
                 handleStartTrackingRequest()
             }
         }
     }
 
-    /** يطلب كل الأذونات Runtime فور فتح التطبيق، بدون تشغيل التتبع */
-    private fun requestStartupPermissions() {
-        val needed = mutableListOf<String>()
+    private fun granted(permission: String) =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS)
-            != PackageManager.PERMISSION_GRANTED)
-            needed.add(Manifest.permission.BODY_SENSORS)
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION)
-            != PackageManager.PERMISSION_GRANTED)
-            needed.add(Manifest.permission.ACTIVITY_RECOGNITION)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED)
-                needed.add(Manifest.permission.POST_NOTIFICATIONS)
+    /** Only the steps that still need something from the user. */
+    private fun onboardingSteps(): List<OnboardingStep> = buildList {
+        add(OnboardingStep.WELCOME)
+        if (!granted(Manifest.permission.BODY_SENSORS) || !granted(Manifest.permission.ACTIVITY_RECOGNITION)) {
+            add(OnboardingStep.SENSORS)
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!granted(Manifest.permission.BODY_SENSORS_BACKGROUND)) add(OnboardingStep.BACKGROUND)
+            if (!granted(Manifest.permission.POST_NOTIFICATIONS)) add(OnboardingStep.NOTIFICATIONS)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+            !getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
+        ) {
+            add(OnboardingStep.ALARM_SCREEN)
+        }
+        if (Build.MANUFACTURER.equals("samsung", ignoreCase = true)) add(OnboardingStep.BATTERY)
+        add(OnboardingStep.READY)
+    }
 
-        if (needed.isNotEmpty()) {
-            Log.d("MainActivity", "Requesting startup permissions: $needed")
-            startupPermissionLauncher.launch(needed.toTypedArray())
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // الأذونات الأساسية موجودة — اطلب الخلفية مباشرة
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS_BACKGROUND)
-                != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(arrayOf(Manifest.permission.BODY_SENSORS_BACKGROUND))
+    private fun runOnboardingStep(step: OnboardingStep, done: () -> Unit) {
+        fun ask(vararg permissions: String) {
+            afterOnboardingPermission = done
+            onboardingPermissionLauncher.launch(arrayOf(*permissions))
+        }
+        when (step) {
+            OnboardingStep.SENSORS -> ask(Manifest.permission.BODY_SENSORS, Manifest.permission.ACTIVITY_RECOGNITION)
+            OnboardingStep.BACKGROUND -> ask(Manifest.permission.BODY_SENSORS_BACKGROUND)
+            OnboardingStep.NOTIFICATIONS -> ask(Manifest.permission.POST_NOTIFICATIONS)
+            OnboardingStep.ALARM_SCREEN -> {
+                openSettings(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                done()
+            }
+            OnboardingStep.BATTERY -> {
+                openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                done()
+            }
+            OnboardingStep.WELCOME, OnboardingStep.READY -> done()
+        }
+    }
+
+    private fun openSettings(action: String) {
+        try {
+            startActivity(Intent(action, Uri.parse("package:$packageName")))
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to open $action", e)
+            try {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            } catch (e2: Exception) {
+                Log.e("MainActivity", "Failed to open app settings", e2)
             }
         }
     }
 
-    private fun handleStartTrackingRequest(afterRequest: Boolean = false) {
+    private fun finishOnboarding() {
+        prefs.edit().putBoolean(KEY_ONBOARDING_DONE, true).apply()
+        showOnboarding = false
+    }
+
+    private fun handleStartTrackingRequest() {
         Log.d("MainActivity", "handleStartTrackingRequest() — checking permissions...")
 
-        // فحص الأذونات الأساسية (يجب أن تكون ممنوحة من بداية التطبيق)
-        val missingPermissions = mutableListOf<String>()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS) != PackageManager.PERMISSION_GRANTED)
-            missingPermissions.add(Manifest.permission.BODY_SENSORS)
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED)
-            missingPermissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS_BACKGROUND) != PackageManager.PERMISSION_GRANTED)
-                missingPermissions.add(Manifest.permission.BODY_SENSORS_BACKGROUND)
+        val missing = mutableListOf<String>()
+        if (!granted(Manifest.permission.BODY_SENSORS)) missing.add(Manifest.permission.BODY_SENSORS)
+        if (!granted(Manifest.permission.ACTIVITY_RECOGNITION)) missing.add(Manifest.permission.ACTIVITY_RECOGNITION)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !granted(Manifest.permission.BODY_SENSORS_BACKGROUND)) {
+            missing.add(Manifest.permission.BODY_SENSORS_BACKGROUND)
         }
 
-        if (missingPermissions.isNotEmpty()) {
-            if (afterRequest) {
-                // Already asked once and the user (or the system) refused: stop here instead of
+        if (missing.isNotEmpty()) {
+            if (startRequestRounds >= MAX_REQUEST_ROUNDS) {
+                // Asked already and the user (or the system) refused: stop here instead of
                 // re-requesting in a loop, and send the user to the app's settings page.
-                Log.w("MainActivity", "Permissions still denied after request: $missingPermissions")
+                Log.w("MainActivity", "Permissions still denied: $missing")
                 pendingStartTracking = false
-                Toast.makeText(this, getString(com.x13labs.dreampulse.R.string.perm_denied), Toast.LENGTH_LONG).show()
-                try {
-                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to open app settings", e)
-                }
+                Toast.makeText(this, getString(R.string.perm_denied), Toast.LENGTH_LONG).show()
+                openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 return
             }
-            Log.w("MainActivity", "Missing at launch: $missingPermissions — requesting")
-            requestPermissionLauncher.launch(missingPermissions.toTypedArray())
+            startRequestRounds++
+            // The background permission can only be granted once the foreground one is
+            val ask = missing.filter { it != Manifest.permission.BODY_SENSORS_BACKGROUND }.ifEmpty { missing }
+            Log.w("MainActivity", "Missing at start: $missing — requesting $ask")
+            requestPermissionLauncher.launch(ask.toTypedArray())
             return
         }
 
-        // كل الأذونات موجودة → شغّل التتبع
         Log.d("MainActivity", "All permissions OK — calling executeStartTracking()")
         pendingStartTracking = false
         viewModel.executeStartTracking()
     }
 
-    private fun showSamsungBatteryBriefingIfNeeded() {
-        if (!Build.MANUFACTURER.equals("samsung", ignoreCase = true)) return
-
-        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("samsung_battery_briefing_shown", false)) return
-
-        try {
-            val builder = android.app.AlertDialog.Builder(this)
-            builder.setTitle(getString(com.x13labs.dreampulse.R.string.samsung_title))
-            builder.setMessage(getString(com.x13labs.dreampulse.R.string.samsung_body))
-            builder.setPositiveButton(getString(com.x13labs.dreampulse.R.string.perm_open)) { _, _ ->
-                try {
-                    val intent = Intent("android.settings.APPLICATION_DETAILS_SETTINGS")
-                    intent.data = Uri.parse("package:$packageName")
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to open Samsung settings", e)
-                }
-                prefs.edit().putBoolean("samsung_battery_briefing_shown", true).apply()
-            }
-            builder.setCancelable(true)
-            builder.show()
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to show Samsung dialog", e)
-        }
+    companion object {
+        private const val KEY_ONBOARDING_DONE = "onboarding_done"
+        private const val MAX_REQUEST_ROUNDS = 2
     }
 }

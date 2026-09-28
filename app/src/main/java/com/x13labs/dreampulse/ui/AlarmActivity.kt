@@ -82,6 +82,8 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
     }
 
     private fun loadSummary() {
+        // Before the first unlock after a restart DataStore cannot be read: keep the empty summary
+        if (!com.x13labs.dreampulse.data.local.BootAlarmStore.isUnlocked(this)) return
         lifecycleScope.launch {
             val sessionStart = preferencesManager.lastSessionStart.first()
             val sleepStart = preferencesManager.sleepStartTime.first()
@@ -105,7 +107,7 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
         sleepRepository.setTracking(false)
         // AlarmService already ended the session and saved it for the summary; clearing
         // again here is only a safety net in case the alarm service was killed first.
-        lifecycleScope.launch {
+        if (com.x13labs.dreampulse.data.local.BootAlarmStore.isUnlocked(this)) lifecycleScope.launch {
             preferencesManager.saveSleepConfirmed(false)
             preferencesManager.saveServiceStartTime(0L)
             preferencesManager.saveTargetWakeTime(0L)

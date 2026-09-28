@@ -20,6 +20,7 @@ import androidx.wear.ongoing.Status
 import com.x13labs.dreampulse.ui.AlarmActivity
 import com.x13labs.dreampulse.util.NotificationHelper
 import com.x13labs.dreampulse.R
+import com.x13labs.dreampulse.data.local.BootAlarmStore
 import com.x13labs.dreampulse.data.local.PreferencesManager
 import com.x13labs.dreampulse.data.repository.SleepRepository
 import com.x13labs.dreampulse.receiver.HeartbeatReceiver
@@ -46,6 +47,8 @@ class AlarmService : Service() {
     private var serviceWakeLock: PowerManager.WakeLock? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Device-protected, so it works even before the watch is unlocked after a restart
+        BootAlarmStore.markRang(this, System.currentTimeMillis())
 
         // 1. صحّي الشاشة فوراً
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -135,11 +138,12 @@ class AlarmService : Service() {
 
         // ✅ 6. startForeground أولاً ← بعدها يصبح مسموحاً بـ startActivity
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // The systemExempted type exists from Android 14; older versions use the manifest type
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(
                     NotificationHelper.NOTIFICATION_ID + 1,
                     notification,
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
                 )
             } else {
                 startForeground(NotificationHelper.NOTIFICATION_ID + 1, notification)
@@ -209,7 +213,11 @@ class AlarmService : Service() {
         HeartbeatReceiver.cancel(this)
         stopService(Intent(this, SleepMonitorService::class.java))
         sleepRepository.setTracking(false)
+        // DataStore cannot be read while the watch is locked after a restart: the alarm
+        // still rings, and the session is cleared once unlocked (see SleepMonitorService).
+        if (!BootAlarmStore.isUnlocked(this)) return
         serviceScope.launch {
+          try {
             // Keep what the morning summary needs before the session fields are cleared
             // (sleepStartTime itself is kept until the next session starts).
             val sessionStart = preferencesManager.serviceStartTime.first()
@@ -237,6 +245,9 @@ class AlarmService : Service() {
             preferencesManager.saveServiceStartTime(0L)
             preferencesManager.saveTargetWakeTime(0L)
             com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(this@AlarmService)
+          } catch (e: Exception) {
+            Log.e("AlarmService", "Could not save the finished night", e)
+          }
         }
     }
 

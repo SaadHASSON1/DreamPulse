@@ -55,6 +55,8 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import com.x13labs.dreampulse.R
+import com.x13labs.dreampulse.domain.BatteryCheck
+import com.x13labs.dreampulse.util.CrashLog
 import com.x13labs.dreampulse.ui.components.EdgeRing
 import com.x13labs.dreampulse.ui.components.StarField
 import com.x13labs.dreampulse.ui.components.formatDuration
@@ -87,11 +89,20 @@ fun MainScreen(viewModel: MainViewModel) {
                     onEditDuration = { nav.navigate("duration") },
                     onEditDeadline = { nav.navigate("deadline") },
                     onLanguage = { nav.navigate("language") },
+                    onLowBattery = { nav.navigate("battery") },
+                    onCrashLog = { nav.navigate("crashlog") },
                 )
             }
             composable("duration") { DurationScreen(viewModel, onDone = { nav.popBackStack() }) }
             composable("deadline") { DeadlineScreen(viewModel, onDone = { nav.popBackStack() }) }
             composable("language") { LanguageScreen(onDone = { nav.popBackStack() }) }
+            composable("battery") {
+                LowBatteryScreen(
+                    onStartAnyway = { nav.popBackStack(); viewModel.startTracking() },
+                    onCancel = { nav.popBackStack() },
+                )
+            }
+            composable("crashlog") { CrashLogScreen(onCleared = { nav.popBackStack() }) }
         }
     }
 }
@@ -102,6 +113,8 @@ private fun HomeScreen(
     onEditDuration: () -> Unit,
     onEditDeadline: () -> Unit,
     onLanguage: () -> Unit,
+    onLowBattery: () -> Unit,
+    onCrashLog: () -> Unit,
 ) {
     val isTracking by viewModel.isTrackingState.collectAsState()
     if (isTracking) {
@@ -113,9 +126,9 @@ private fun HomeScreen(
     // while the neighbouring page is built mid-gesture.
     HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 2) { page ->
         when (page) {
-            0 -> SetupScreen(viewModel, onEditDuration, onEditDeadline)
+            0 -> SetupScreen(viewModel, onEditDuration, onEditDeadline, onLowBattery)
             1 -> HistoryScreen()
-            else -> SettingsScreen(viewModel, onEditDeadline, onLanguage)
+            else -> SettingsScreen(viewModel, onEditDeadline, onLanguage, onCrashLog)
         }
     }
 }
@@ -152,7 +165,12 @@ private fun Chip(text: String, textColor: Color, background: Color, onClick: () 
  * hard to control and fought with page swipes). Tap the number to change it.
  */
 @Composable
-private fun SetupScreen(viewModel: MainViewModel, onEditDuration: () -> Unit, onEditDeadline: () -> Unit) {
+private fun SetupScreen(
+    viewModel: MainViewModel,
+    onEditDuration: () -> Unit,
+    onEditDeadline: () -> Unit,
+    onLowBattery: () -> Unit,
+) {
     val context = LocalContext.current
     val duration by viewModel.sleepDurationMinutes.collectAsState()
     val deadlineOn by viewModel.hardDeadlineEnabled.collectAsState()
@@ -190,7 +208,10 @@ private fun SetupScreen(viewModel: MainViewModel, onEditDuration: () -> Unit, on
         }
 
         EdgeButton(
-            onClick = { viewModel.startTracking() },
+            onClick = {
+                val battery = readBattery(context)
+                if (BatteryCheck.isTooLow(battery.level, battery.charging)) onLowBattery() else viewModel.startTracking()
+            },
             modifier = Modifier.align(Alignment.BottomCenter),
             buttonSize = EdgeButtonSize.Small,
             colors = ButtonDefaults.buttonColors(containerColor = Dream.MoonDeep, contentColor = Dream.MoonLight),
@@ -290,8 +311,15 @@ private fun DeadlineScreen(viewModel: MainViewModel, onDone: () -> Unit) {
 // Settings (second pager page)
 
 @Composable
-private fun SettingsScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit, onLanguage: () -> Unit) {
+private fun SettingsScreen(
+    viewModel: MainViewModel,
+    onEditDeadline: () -> Unit,
+    onLanguage: () -> Unit,
+    onCrashLog: () -> Unit,
+) {
     val context = LocalContext.current
+    // Read each time the page is shown; empty on almost every watch, so the row stays hidden
+    val crashes = remember { CrashLog.count(context) }
     val deadlineOn by viewModel.hardDeadlineEnabled.collectAsState()
     val deadlineMin by viewModel.hardDeadlineMinutes.collectAsState()
     val listState = rememberScalingLazyListState()
@@ -335,6 +363,15 @@ private fun SettingsScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit,
                         label = stringResource(R.string.language),
                         value = lang?.let { AppLanguage.nativeName(it) } ?: stringResource(R.string.lang_system),
                         onClick = onLanguage,
+                    )
+                }
+            }
+            if (crashes > 0) {
+                item {
+                    SettingRow(
+                        label = stringResource(R.string.crash_log),
+                        value = stringResource(R.string.crash_log_count, crashes),
+                        onClick = onCrashLog,
                     )
                 }
             }

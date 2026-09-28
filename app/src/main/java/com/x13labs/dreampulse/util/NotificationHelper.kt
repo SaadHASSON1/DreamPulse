@@ -8,7 +8,6 @@ import android.content.Intent
 import android.app.PendingIntent
 import androidx.core.app.NotificationCompat
 import com.x13labs.dreampulse.R
-import com.x13labs.dreampulse.ui.AlarmActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,7 +28,7 @@ class NotificationHelper @Inject constructor(
             context.getString(R.string.channel_tracking),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Shows live sleep tracking data"
+            description = context.getString(R.string.channel_tracking_desc)
             setSound(null, null)
             enableVibration(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
@@ -40,7 +39,7 @@ class NotificationHelper @Inject constructor(
             context.getString(R.string.channel_alarms),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Channel for sleep alarms"
+            description = context.getString(R.string.channel_alarms_desc)
             enableVibration(true)
             vibrationPattern = longArrayOf(0, 1000, 500, 1000, 500)
             setBypassDnd(true)
@@ -48,50 +47,6 @@ class NotificationHelper @Inject constructor(
         }
         notificationManager.createNotificationChannel(trackingChannel)
         notificationManager.createNotificationChannel(alarmChannel)
-    }
-
-    fun getTrackingNotification(content: String): Notification {
-        return NotificationCompat.Builder(context, TRACKING_CHANNEL_ID)
-            .setContentTitle("DreamPulse Tracking")
-            .setContentText(content)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setOngoing(true)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setSilent(true)
-            .build()
-    }
-
-    fun getAlarmNotification(): Notification {
-        val activityIntent = Intent(context, AlarmActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-        val fullScreenPendingIntent = PendingIntent.getActivity(
-            context, 1001, activityIntent, 
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val stopIntent = Intent(context, AlarmActivity::class.java).apply {
-            putExtra("action", "show_summary")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-        val stopPendingIntent = PendingIntent.getActivity(
-            context, 1002, stopIntent, 
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        return NotificationCompat.Builder(context, ALARM_CHANNEL_ID)
-            .setContentTitle("DreamPulse Alarm")
-            .setContentText("Wake Up!")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setFullScreenIntent(fullScreenPendingIntent, true)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "STOP", stopPendingIntent)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setSilent(false)
-            .build()
     }
 
     /**

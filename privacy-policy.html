@@ -23,7 +23,7 @@
 <body>
 
 <h1>Privacy Policy: DreamPulse</h1>
-<p class="updated">Last updated: September 2026 (version 1.1)</p>
+<p class="updated">Last updated: September 2026 (version 1.2)</p>
 
 <p>DreamPulse is a sleep alarm for Wear OS watches, developed by Saad Hasson (X13LABS). This policy explains what the app reads, what it keeps, and where.</p>
 
@@ -44,6 +44,7 @@
   <li><b>The current session:</b> start time, time you fell asleep, alarm time.</li>
   <li><b>Night history</b> (last 30 nights, the last 7 are shown): session start, time you fell asleep, wake time, sleep goal, and battery at start and end.</li>
   <li><b>Detection log</b> (last 7 sessions): one line per minute until you fall asleep, with the number of movements, average heart rate, whether the watch was worn, and minutes of stillness. It is used to improve detection accuracy.</li>
+  <li><b>Error log:</b> if the app ever crashes, a technical report (time, app version, watch model, Android version, and where in the code it failed) is kept on the watch. You can view or clear it in Settings; it is only shared if you choose to send it yourself.</li>
 </ul>
 <p>This data is stored in the app's own storage on your watch, which other apps cannot read. It is never uploaded, never shared, never sold, and never used for advertising. Uninstalling the app deletes all of it.</p>
 
@@ -51,7 +52,7 @@
 <ul>
   <li><code>BODY_SENSORS</code>, <code>BODY_SENSORS_BACKGROUND</code>: read heart rate, including while the screen is off.</li>
   <li><code>ACTIVITY_RECOGNITION</code>: detect motion and the watch's sleep state.</li>
-  <li><code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_HEALTH</code>, <code>FOREGROUND_SERVICE_SPECIAL_USE</code>: keep sleep detection and the ringing alarm running with the screen off.</li>
+  <li><code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_HEALTH</code>, <code>FOREGROUND_SERVICE_SYSTEM_EXEMPTED</code>: keep sleep detection and the ringing alarm running with the screen off.</li>
   <li><code>USE_EXACT_ALARM</code>: ring at the exact time.</li>
   <li><code>USE_FULL_SCREEN_INTENT</code>: open the alarm screen when it rings.</li>
   <li><code>POST_NOTIFICATIONS</code>: show the tracking status and the alarm.</li>

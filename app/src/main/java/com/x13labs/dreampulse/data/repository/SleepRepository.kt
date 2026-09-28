@@ -23,7 +23,8 @@ class SleepRepository @Inject constructor(
 
     fun setTracking(tracking: Boolean) {
         healthServicesManager.setTracking(tracking)
-        scope.launch { preferencesManager.setTrackingActive(tracking) }
+        // Fails while the watch is locked after a restart (the alarm can ring then): not fatal
+        scope.launch { runCatching { preferencesManager.setTrackingActive(tracking) } }
     }
 
     suspend fun saveSleepStartTime(timestamp: Long) {

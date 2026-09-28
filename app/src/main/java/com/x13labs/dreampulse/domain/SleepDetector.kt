@@ -26,7 +26,13 @@ package com.x13labs.dreampulse.domain
  * still from 04:51:30, first low reading about 04:56:30 -> about 04:54; Samsung Health: 04:54).
  * Otherwise it is the start of the stillness.
  */
-class SleepDetector(private val sessionStart: Long) {
+/**
+ * [savedBaseline] is the awake baseline measured earlier in the same session. A service revived
+ * mid-session (killed by the system, or the app updated) passes it back: otherwise its first
+ * reading, taken while the user is already lying still, would become the baseline and hide
+ * the heart-rate drop (seen on 2026-09-28: 72 bpm at Start, 51 bpm after a revival).
+ */
+class SleepDetector(private val sessionStart: Long, private val savedBaseline: Float? = null) {
 
     data class Decision(val onset: Long, val source: String)
 
@@ -65,6 +71,7 @@ class SleepDetector(private val sessionStart: Long) {
     /** Median of the first heart-rate burst of the session, or null if it had too few samples. */
     @Synchronized
     fun baseline(): Float? {
+        if (savedBaseline != null) return savedBaseline
         val first = hrSamples.firstOrNull() ?: return null
         val burst = hrSamples.filter { (t, _) -> t <= first.first + FIRST_BURST_MS }.map { it.second }
         return if (burst.size >= MIN_SAMPLES) median(burst) else null

@@ -80,7 +80,7 @@ class SleepDetectorTest {
     }
 
     /**
-     * Real night, 2026-09-27 (Galaxy Watch8): Start at 04:50:29 with 74 bpm, last movement
+     * Real night, 2026-09-27 (Galaxy Watch7): Start at 04:50:29 with 74 bpm, last movement
      * 04:51:30, then 48-51 bpm while still. Samsung Health: asleep at 04:54. The old detector
      * averaged the first 10 minutes into its "awake" baseline (49 bpm) and dated sleep 05:08.
      */
@@ -156,5 +156,23 @@ class SleepDetectorTest {
         d.onHeartRate(min(1), 250f)
         d.onHeartRate(min(1), 12f)
         assertNull(d.baseline())
+    }
+
+    /** Real night 2026-09-28: 72 bpm at Start, the service revived at 51 bpm while lying still. */
+    @Test
+    fun `a revived detector keeps the awake baseline from Start`() {
+        val revived = SleepDetector(start, savedBaseline = 72f)
+        revived.onWorn(start, true)
+        revived.hrBursts(0, 15, 51f)
+        assertEquals(72f, revived.baseline())
+        val decision = revived.evaluate(min(11))
+        assertNotNull(decision)
+        assertEquals("stillness+big heart-rate drop", decision!!.source)
+
+        // Without it, the sleeping heart rate becomes the baseline and hides the drop
+        val forgetful = SleepDetector(start)
+        forgetful.onWorn(start, true)
+        forgetful.hrBursts(0, 15, 51f)
+        assertNull(forgetful.evaluate(min(11)))
     }
 }

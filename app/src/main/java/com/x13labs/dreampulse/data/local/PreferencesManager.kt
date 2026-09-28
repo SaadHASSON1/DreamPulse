@@ -86,6 +86,8 @@ class PreferencesManager @Inject constructor(
     }
 
     suspend fun saveTargetWakeTime(timestamp: Long) {
+        // Mirrored first: that copy is what re-arms the alarm after a restart, before unlock
+        BootAlarmStore.saveTarget(context, timestamp)
         context.dataStore.edit { preferences ->
             preferences[TARGET_WAKE_TIME_KEY] = timestamp
         }
@@ -120,6 +122,15 @@ class PreferencesManager @Inject constructor(
 
     suspend fun saveBatteryStart(level: Int) {
         context.dataStore.edit { it[BATTERY_START_KEY] = level }
+    }
+
+    // Awake heart rate measured at the start of the session (0 = not measured yet)
+    private val AWAKE_BASELINE_KEY = androidx.datastore.preferences.core.floatPreferencesKey("awake_baseline")
+
+    val awakeBaseline: Flow<Float> = context.dataStore.data.map { it[AWAKE_BASELINE_KEY] ?: 0f }
+
+    suspend fun saveAwakeBaseline(bpm: Float) {
+        context.dataStore.edit { it[AWAKE_BASELINE_KEY] = bpm }
     }
 
     // Hard Deadline ("Must wake by" feature)

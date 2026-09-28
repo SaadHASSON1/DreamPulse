@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/showcase-en.png" width="100%" alt="DreamPulse on a Galaxy Watch8: setup, duration wheels, waiting for sleep, sunrise alarm, history">
+  <img src="docs/screenshots/showcase-en.png" width="100%" alt="DreamPulse on a Galaxy Watch7: setup, duration wheels, waiting for sleep, sunrise alarm, history">
 </p>
 
 ---
@@ -88,7 +88,7 @@ app/src/main/java/com/x13labs/dreampulse/
 
 ## Compatibility
 
-Wear OS 3 and later (Android 11+), tested on a Galaxy Watch8 (Wear OS 6). Needs a heart-rate sensor.
+Wear OS 3 and later (Android 11+), tested on a Galaxy Watch7 (Wear OS 6). Needs a heart-rate sensor.
 
 ---
 

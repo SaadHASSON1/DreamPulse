@@ -60,4 +60,26 @@
     <string name="tile_description">ابدأ النوم وشاهد موعد المنبّه</string>
     <string name="tile_start">ابدأ النوم</string>
     <string name="tile_alarm">المنبّه</string>
+    <string name="channel_tracking_desc">يظهر أثناء انتظار نومك</string>
+    <string name="channel_alarms_desc">يوقظك في الموعد الذي اخترته</string>
+    <string name="low_battery_title">البطارية %1$d%%</string>
+    <string name="low_battery_body" formatted="false">تستهلك الليلة الواحدة نحو 17% من البطارية. اشحن الساعة أولاً، وإلا فقد تنطفئ قبل أن يرنّ المنبّه.</string>
+    <string name="start_anyway">ابدأ رغم ذلك</string>
+    <string name="cancel">إلغاء</string>
+    <string name="crash_log">سجلّ الأعطال</string>
+    <string name="crash_log_count">العدد: %1$d</string>
+    <string name="crash_log_hint">صوّر هذه الشاشة وأرسلها إلى المطوّر. لا يرسل التطبيق شيئاً عبر الإنترنت.</string>
+    <string name="crash_log_clear">مسح السجلّ</string>
+    <string name="ob_welcome_body">منبّه يبدأ العدّ حين تغفو، لا حين تستلقي.</string>
+    <string name="ob_next">التالي</string>
+    <string name="ob_allow">سماح</string>
+    <string name="ob_sensors_title">النبض والحركة</string>
+    <string name="ob_sensors_body">ليعرف التطبيق متى تغفو. لا تغادر هذه البيانات ساعتك أبداً.</string>
+    <string name="ob_background_title">والشاشة مطفأة</string>
+    <string name="ob_background_body">اختر «السماح طوال الوقت» حتى يستمرّ الكشف طوال الليل.</string>
+    <string name="ob_notif_title">الإشعارات</string>
+    <string name="ob_notif_body">ليُظهر أن التتبّع يعمل، وليرنّ المنبّه.</string>
+    <string name="ob_ready_title">كل شيء جاهز</string>
+    <string name="ob_ready_body">البس الساعة في سريرك، واضغط «ابدأ»، ونَم. يبدأ العدّ عندما تغفو.</string>
+    <string name="ob_begin">لنبدأ</string>
 </resources>
