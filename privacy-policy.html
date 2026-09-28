@@ -1,77 +1,103 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DreamPulse Privacy Policy</title>
-<style>
-  :root { --bg: #ffffff; --text: #2b2b33; --muted: #6b6b78; --head: #1a1a2e; --card: #f4f4f8; --accent: #534AB7; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #0B1026; --text: #d9d8ee; --muted: #8A8FB0; --head: #EEEDFE; --card: #141A33; --accent: #AFA9EC; }
-  }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 760px; margin: 0 auto; padding: 40px 20px; line-height: 1.7; }
-  h1 { color: var(--head); font-size: 28px; margin-bottom: 4px; }
-  h2 { color: var(--head); font-size: 18px; margin-top: 32px; }
-  p, li { font-size: 15px; }
-  ul { padding-left: 20px; }
-  code { background: var(--card); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
-  .updated { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
-  .highlight { background: var(--card); border-left: 3px solid var(--accent); padding: 12px 16px; border-radius: 0 8px 8px 0; }
-  .contact { background: var(--card); padding: 16px 20px; border-radius: 8px; margin-top: 32px; }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DreamPulse — Privacy Policy</title>
+  <link rel="icon" type="image/png" href="web/mark.png">
+  <meta name="theme-color" content="#534ab7">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="web/site.css?v=1">
 </head>
-<body>
+<body class="legal">
+<header class="top">
+  <div class="wrap top-row">
+    <a class="brand" href="./"><img src="web/mark.png" alt="" width="32" height="32"><span>DreamPulse</span></a>
+    <nav><a href="#ar">العربية</a><a href="./">Home</a></nav>
+  </div>
+</header>
+<main class="wrap narrow">
+  <h1>DreamPulse — Privacy Policy</h1>
+  <p class="fine"><em>Last updated: September 2026 (version 1.2)</em></p>
 
-<h1>Privacy Policy: DreamPulse</h1>
-<p class="updated">Last updated: September 2026 (version 1.2)</p>
+  <p>DreamPulse is a sleep alarm for Wear OS watches, developed by Saad Hasson (X13LABS). This policy explains what the app reads, what it keeps, and where.</p>
 
-<p>DreamPulse is a sleep alarm for Wear OS watches, developed by Saad Hasson (X13LABS). This policy explains what the app reads, what it keeps, and where.</p>
+  <p class="highlight"><strong>In short:</strong> DreamPulse has no internet permission. Everything it reads or stores stays on your watch. Nothing is sent to us or to anyone else.</p>
 
-<p class="highlight"><b>In short:</b> DreamPulse has no internet permission. Everything it reads or stores stays on your watch. Nothing is sent to us or to anyone else.</p>
+  <h2>1. What the app reads</h2>
+  <ul>
+    <li><strong>Heart rate</strong>, through Android Health Services, to tell when you have fallen asleep.</li>
+    <li><strong>Motion</strong> (accelerometer), to detect stillness while you fall asleep, light-sleep movement for Smart Wake, and a wrist shake to stop the alarm.</li>
+    <li><strong>Whether the watch is on your wrist</strong>, so a watch left on a table is never counted as asleep.</li>
+    <li><strong>The watch's own sleep state</strong> (asleep or awake), reported by Health Services.</li>
+    <li><strong>Battery level</strong> at the start and end of each night, to show how much the app used.</li>
+  </ul>
 
-<h2>1. What the app reads</h2>
-<ul>
-  <li><b>Heart rate</b>, through Android Health Services, to tell when you have fallen asleep.</li>
-  <li><b>Motion</b> (accelerometer), to detect stillness while you fall asleep, light-sleep movement for Smart Wake, and a wrist shake to stop the alarm.</li>
-  <li><b>Whether the watch is on your wrist</b>, so a watch left on a table is never counted as asleep.</li>
-  <li><b>The watch's own sleep state</b> (asleep or awake), reported by Health Services.</li>
-  <li><b>Battery level</b> at the start and end of each night, to show how much the app used.</li>
-</ul>
+  <h2>2. What the app keeps, on the watch only</h2>
+  <ul>
+    <li><strong>Your settings:</strong> sleep goal, wake-by time, app language.</li>
+    <li><strong>The current session:</strong> start time, time you fell asleep, alarm time.</li>
+    <li><strong>Night history</strong> (last 30 nights, the last 7 are shown): session start, time you fell asleep, wake time, sleep goal, and battery at start and end.</li>
+    <li><strong>Detection log</strong> (last 7 sessions): one line per minute until you fall asleep, with the number of movements, average heart rate, whether the watch was worn, and minutes of stillness. It is used to improve detection accuracy.</li>
+    <li><strong>Error log:</strong> if the app ever crashes, a technical report (time, app version, watch model, Android version, and where in the code it failed) is kept on the watch. You can view or clear it in Settings; it is only shared if you choose to send it yourself.</li>
+  </ul>
+  <p>This data is stored in the app's own storage on your watch, which other apps cannot read. It is never uploaded, never shared, never sold, and never used for advertising. Uninstalling the app deletes all of it.</p>
 
-<h2>2. What the app keeps, on the watch only</h2>
-<ul>
-  <li><b>Your settings:</b> sleep goal, wake-by time, app language.</li>
-  <li><b>The current session:</b> start time, time you fell asleep, alarm time.</li>
-  <li><b>Night history</b> (last 30 nights, the last 7 are shown): session start, time you fell asleep, wake time, sleep goal, and battery at start and end.</li>
-  <li><b>Detection log</b> (last 7 sessions): one line per minute until you fall asleep, with the number of movements, average heart rate, whether the watch was worn, and minutes of stillness. It is used to improve detection accuracy.</li>
-  <li><b>Error log:</b> if the app ever crashes, a technical report (time, app version, watch model, Android version, and where in the code it failed) is kept on the watch. You can view or clear it in Settings; it is only shared if you choose to send it yourself.</li>
-</ul>
-<p>This data is stored in the app's own storage on your watch, which other apps cannot read. It is never uploaded, never shared, never sold, and never used for advertising. Uninstalling the app deletes all of it.</p>
+  <h2>3. Permissions</h2>
+  <ul>
+    <li><code>BODY_SENSORS</code>, <code>BODY_SENSORS_BACKGROUND</code>: read heart rate, including while the screen is off.</li>
+    <li><code>ACTIVITY_RECOGNITION</code>: detect motion and the watch's sleep state.</li>
+    <li><code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_HEALTH</code>, <code>FOREGROUND_SERVICE_SYSTEM_EXEMPTED</code>: keep sleep detection and the ringing alarm running with the screen off.</li>
+    <li><code>USE_EXACT_ALARM</code>: ring at the exact time.</li>
+    <li><code>USE_FULL_SCREEN_INTENT</code>: open the alarm screen when it rings.</li>
+    <li><code>POST_NOTIFICATIONS</code>: show the tracking status and the alarm.</li>
+    <li><code>WAKE_LOCK</code>, <code>VIBRATE</code>: keep the watch awake when needed and vibrate for the alarm.</li>
+    <li><code>RECEIVE_BOOT_COMPLETED</code>: restore your alarm if the watch restarts during the night.</li>
+  </ul>
+  <p>DreamPulse does not request internet, location, contacts, microphone or camera access.</p>
 
-<h2>3. Permissions</h2>
-<ul>
-  <li><code>BODY_SENSORS</code>, <code>BODY_SENSORS_BACKGROUND</code>: read heart rate, including while the screen is off.</li>
-  <li><code>ACTIVITY_RECOGNITION</code>: detect motion and the watch's sleep state.</li>
-  <li><code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_HEALTH</code>, <code>FOREGROUND_SERVICE_SYSTEM_EXEMPTED</code>: keep sleep detection and the ringing alarm running with the screen off.</li>
-  <li><code>USE_EXACT_ALARM</code>: ring at the exact time.</li>
-  <li><code>USE_FULL_SCREEN_INTENT</code>: open the alarm screen when it rings.</li>
-  <li><code>POST_NOTIFICATIONS</code>: show the tracking status and the alarm.</li>
-  <li><code>WAKE_LOCK</code>, <code>VIBRATE</code>: keep the watch awake when needed and vibrate for the alarm.</li>
-  <li><code>RECEIVE_BOOT_COMPLETED</code>: restore your alarm if the watch restarts during the night.</li>
-</ul>
-<p>DreamPulse does not request internet, location, contacts, microphone or camera access.</p>
+  <h2>4. Children</h2>
+  <p>DreamPulse is not directed at children under 13 and does not knowingly collect data from them.</p>
 
-<h2>4. Children</h2>
-<p>DreamPulse is not directed at children under 13 and does not knowingly collect data from them.</p>
+  <h2>5. Changes</h2>
+  <p>If this policy changes, the new version is published here with an updated date.</p>
 
-<h2>5. Changes</h2>
-<p>If this policy changes, the new version is published here with an updated date.</p>
+  <h2>Contact</h2>
+  <p>Questions about this policy: <a href="mailto:contact@x13labs.com">contact@x13labs.com</a> · X13LABS, Turkey</p>
 
-<div class="contact">
-  <b>Contact</b><br>
-  Questions about this policy: <a href="mailto:contact@x13labs.com">contact@x13labs.com</a><br>
-  X13LABS, Turkey
-</div>
+  <section id="ar" dir="rtl" lang="ar">
+    <h1>سياسة الخصوصية</h1>
+    <p class="highlight"><strong>باختصار:</strong> لا يملك DreamPulse إذن الاتصال بالإنترنت. كل ما يقرؤه أو يحفظه يبقى على ساعتك، ولا يُرسل شيء إلينا ولا إلى أي أحد.</p>
 
+    <h2>ما يقرؤه التطبيق</h2>
+    <ul>
+      <li><strong>نبض القلب</strong>، ليعرف متى غفوت.</li>
+      <li><strong>الحركة</strong>، ليعرف سكونك قبل النوم، وتقلّبك في النوم الخفيف للاستيقاظ الذكي، وهزّة يدك لإيقاف المنبّه.</li>
+      <li><strong>هل الساعة على معصمك</strong>، فلا تُعدّ ساعة متروكة على طاولة نائمة.</li>
+      <li><strong>حالة النوم التي تسجّلها الساعة نفسها</strong>.</li>
+      <li><strong>مستوى البطارية</strong> في بداية الليلة ونهايتها، ليُظهر لك ما استهلكه التطبيق.</li>
+    </ul>
+
+    <h2>ما يحفظه التطبيق، على الساعة فقط</h2>
+    <ul>
+      <li><strong>إعداداتك:</strong> مدة النوم، وموعد الاستيقاظ الإلزامي، ولغة التطبيق.</li>
+      <li><strong>الجلسة الحالية:</strong> وقت البدء، ووقت نومك، وموعد المنبّه.</li>
+      <li><strong>سجلّ الليالي</strong> (آخر ثلاثين ليلة، ويُعرض آخر سبع منها).</li>
+      <li><strong>سجلّ الكشف</strong> (آخر سبع جلسات): سطر في كل دقيقة حتى تغفو، فيه عدد الحركات ومتوسّط النبض وهل الساعة على معصمك ودقائق السكون، لتحسين دقّة الكشف.</li>
+      <li><strong>سجلّ الأعطال:</strong> إن تعطّل التطبيق، يُحفظ تقرير تقني على الساعة، وتستطيع عرضه أو مسحه من الإعدادات، ولا يُرسل إلا إن أرسلته أنت بنفسك.</li>
+    </ul>
+    <p>تُحفظ هذه البيانات في مساحة التطبيق الخاصة على ساعتك، ولا يقرؤها أي تطبيق آخر. لا تُرفع ولا تُشارك ولا تُباع ولا تُستعمل للإعلانات أبداً. وإذا حذفت التطبيق حُذفت كلها.</p>
+
+    <h2>الأذونات</h2>
+    <p>يطلب التطبيق أذونات الحسّاسات والحركة ليكشف نومك، وأذونات العمل في الخلفية والمنبّه الدقيق وشاشة المنبّه ليرنّ في موعده، وإذن الإشعارات ليُظهر حالة التتبّع، وإذن ما بعد إعادة التشغيل ليعيد منبّهك إن أُعيد تشغيل الساعة. ولا يطلب الإنترنت ولا الموقع ولا جهات الاتصال ولا الميكروفون ولا الكاميرا.</p>
+
+    <h2>الأطفال</h2>
+    <p>التطبيق غير موجّه إلى من هم دون الثالثة عشرة.</p>
+
+    <h2>التواصل</h2>
+    <p>لأي سؤال عن هذه السياسة: <a href="mailto:contact@x13labs.com">contact@x13labs.com</a></p>
+  </section>
+</main>
+<footer><div class="wrap foot-row"><span>© 2026 DreamPulse — X13LABS</span><nav><a href="./">Home</a><a href="https://github.com/SaadHASSON1/DreamPulse">GitHub</a><a href="mailto:contact@x13labs.com">Contact</a></nav></div></footer>
 </body>
 </html>

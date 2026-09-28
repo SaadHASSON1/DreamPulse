@@ -1,198 +1,233 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DreamPulse · منبّه نوم ذكي</title>
-<meta name="description" content="A Wear OS sleep alarm that starts counting when you actually fall asleep. Made by Saad Hasson.">
-<meta property="og:title" content="DreamPulse">
-<meta property="og:description" content="A sleep alarm that starts counting when you fall asleep.">
-<meta property="og:image" content="https://saadhasson1.github.io/DreamPulse/docs/screenshots/showcase-en.png">
-<link rel="icon" href="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono&family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #0B1026; --line: #1E2548; --panel: #10152e;
-    --text: #d9d8ee; --head: #EEEDFE; --muted: #8A8FB0; --accent: #AFA9EC; --sun: #FAC775; --ok: #5DCAA5;
-    --font: "IBM Plex Sans", system-ui, sans-serif;
-    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
-  }
-  html[lang="ar"] { --font: "IBM Plex Sans Arabic", "IBM Plex Sans", system-ui, sans-serif; }
-  html[lang="en"] [data-l="ar"], html[lang="ar"] [data-l="en"] { display: none !important; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 17px; line-height: 1.7; overflow-x: hidden; }
-  a { color: var(--accent); }
-  .col { max-width: 720px; margin: 0 auto; padding: 0 20px; }
-
-  header { display: flex; justify-content: space-between; align-items: center; padding: 22px 0; }
-  .me { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 15px; text-decoration: none; }
-  .me img { width: 28px; height: 28px; border-radius: 50%; }
-  .me b { color: var(--head); font-weight: 600; }
-  .lang button { background: none; border: 0; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; padding: 4px 6px; }
-  .lang button[aria-pressed="true"] { color: var(--head); text-decoration: underline; text-underline-offset: 4px; }
-
-  h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.2; color: var(--head); margin: 40px 0 18px; font-weight: 600; }
-  h2 { font-size: 22px; color: var(--head); margin: 56px 0 12px; font-weight: 600; }
-  p { margin: 0 0 16px; }
-  .quiet { color: var(--muted); }
-  .links { display: flex; gap: 18px; flex-wrap: wrap; margin: 22px 0 0; font-size: 15px; }
-
-  .shot { margin: 40px -20px 0; }
-  .shot img { width: 100%; height: auto; display: block; }
-
-  ul.plain { padding-inline-start: 20px; margin: 0 0 16px; }
-  ul.plain li { margin-bottom: 8px; }
-  ul.plain b { color: var(--head); font-weight: 600; }
-
-  pre { font-family: var(--mono); font-size: 13.5px; line-height: 1.6; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; direction: ltr; text-align: left; color: var(--text); }
-  pre .c { color: var(--muted); }
-  pre .y { color: var(--sun); }
-  pre .g { color: var(--ok); }
-
-  .tabs { display: flex; gap: 14px; margin: 8px 0 18px; font-size: 15px; }
-  .tabs button { background: none; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 0; }
-  .tabs button[aria-selected="true"] { color: var(--head); text-decoration: underline; text-underline-offset: 4px; }
-  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
-  .gallery img { width: 100%; height: auto; display: block; }
-
-  footer { margin-top: 72px; border-top: 1px solid var(--line); padding: 22px 0 40px; font-size: 14px; color: var(--muted); }
-  footer a { color: var(--muted); }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DreamPulse — منبّه النوم الذكي</title>
+  <meta name="description" content="DreamPulse: منبّه نوم لساعات Wear OS لا يبدأ العدّ إلا بعد أن تغفو فعلاً. بلا إنترنت، وبياناتك على ساعتك.">
+  <link rel="icon" type="image/png" href="web/mark.png">
+  <meta property="og:title" content="DreamPulse — منبّه النوم الذكي">
+  <meta property="og:description" content="المنبّه العادي يعدّ من لحظة استلقائك. DreamPulse يعدّ من لحظة نومك.">
+  <meta property="og:image" content="https://saadhasson1.github.io/DreamPulse/docs/screenshots/showcase-ar.png">
+  <meta name="theme-color" content="#534ab7">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="web/site.css?v=1">
+  <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MorphSVGPlugin.min.js"></script>
+  <script defer src="web/hero.js?v=1"></script>
 </head>
 <body>
+  <header class="top">
+    <div class="wrap top-row">
+      <a class="brand" href="./" aria-label="DreamPulse — الصفحة الرئيسية">
+        <img src="web/mark.png" alt="" width="36" height="36">
+        <span>DreamPulse</span>
+      </a>
+      <nav aria-label="أقسام الصفحة">
+        <a href="#features">المزايا</a>
+        <a href="#how">كيف يعمل</a>
+        <a href="#privacy">الخصوصية</a>
+        <a href="#faq">أسئلة</a>
+        <a class="btn btn-small" href="#download">احصل عليه</a>
+      </nav>
+    </div>
+  </header>
 
-<div class="col">
-<header>
-  <a class="me" href="https://github.com/SaadHASSON1"><img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" alt=""><span><b>DreamPulse</b> · Saad Hasson</span></a>
-  <div class="lang" role="group" aria-label="Language">
-    <button type="button" data-set-lang="ar" aria-pressed="true">عربي</button>
-    <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
-  </div>
-</header>
+  <main>
+    <!-- The story: a heartbeat calms down and folds into a crescent moon — the countdown starts when sleep does. -->
+    <section class="story" aria-label="المنبّه العادي يعدّ من لحظة استلقائك. أما DreamPulse فيعدّ من لحظة نومك.">
+      <div class="story-stage">
+        <svg class="story-mark" viewBox="40 60 540 460" aria-hidden="true">
+          <g class="story-grid">
+            <line x1="60" x2="540" y1="200" y2="200"/><line x1="60" x2="540" y1="300" y2="300"/><line x1="60" x2="540" y1="400" y2="400"/>
+          </g>
+          <g id="stars">
+            <circle cx="520" cy="250" r="7"/><circle cx="420" cy="95" r="5"/><circle cx="545" cy="400" r="5"/>
+            <circle cx="110" cy="115" r="6"/><circle cx="75" cy="450" r="4"/>
+          </g>
+          <path id="pulse" d="M60 300 H190 L215 300 L235 250 L255 300 L270 300 L285 150 L305 420 L322 270 L340 300 H540"/>
+          <circle id="beat" cx="540" cy="300" r="14"/>
+          <path id="pulseCalm" class="moon-target" d="M60 300 H190 L215 300 L235 288 L255 300 L270 300 L285 255 L305 335 L322 292 L340 300 H540"/>
+          <path id="moon" class="moon-target" d="M264 134 A170 170 0 1 0 458.7 361 A150 150 0 0 1 264 134 Z"/>
+        </svg>
+        <div class="story-words">
+          <p class="story-line" id="line1">المنبّه العادي يعدّ من لحظة استلقائك.</p>
+          <p class="story-line" id="line2">أما DreamPulse فيعدّ من لحظة <strong>نومك</strong>.</p>
+        </div>
+      </div>
+    </section>
 
-<main>
-  <h1>
-    <span data-l="en">A sleep alarm that waits until I'm actually asleep.</span>
-    <span data-l="ar">منبّهٌ ينتظر حتى أنام فعلاً.</span>
-  </h1>
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">منبّه نوم لساعات Wear OS</p>
+          <h1>تطلب سبع ساعات نوم، <span class="accent">فتنام سبع ساعات كاملة</span></h1>
+          <p class="lead">أنام بعد صلاة الفجر، ولا أغفو بمجرد أن أضع رأسي على الوسادة: عشر دقائق في ليلة، وأربعون في أخرى. والمنبّه العادي يقتطعها كلها من نومي. لذلك صنعت DreamPulse: يراقب نبض قلبك وحركتك، ولا يبدأ العدّ إلا حين تغفو فعلاً.</p>
+          <div class="cta">
+            <a class="btn btn-primary" href="#download">احصل على DreamPulse</a>
+            <a class="btn" href="#how">كيف يعرف أنك نمت</a>
+          </div>
+          <p class="fine">مجاني · Wear OS 3 أو أحدث · بياناتك لا تغادر ساعتك</p>
+        </div>
+      </div>
+    </section>
 
-  <div data-l="en">
-    <p>I sleep after Fajr, and I never fall asleep the minute I lie down. Some nights it's 10 minutes, some nights 40. A normal alarm doesn't care: set it for 7 hours and those minutes come straight out of your sleep.</p>
-    <p>So I built DreamPulse for my Galaxy Watch. You pick how long you want to sleep, press Start, and go to bed. The watch watches your heart rate and movement, and the countdown only starts once you've actually fallen asleep.</p>
-  </div>
-  <div data-l="ar">
-    <p>أنام بعد صلاة الفجر، ولا أغفو بمجرد أن أضع رأسي على الوسادة؛ فقد يستغرق ذلك عشر دقائق في ليلة، وأربعين في أخرى. والمنبّه العادي لا يكترث لذلك: تضبطه على سبع ساعات، فتُقتطع هذه الدقائق من نومك.</p>
-    <p>لذلك صنعت DreamPulse لساعتي Galaxy Watch. تختار المدة التي تريد أن تنامها، وتضغط «ابدأ»، ثم تخلد إلى النوم. تراقب الساعة نبض قلبك وحركتك، ولا يبدأ العدّ إلا حين تغفو فعلاً.</p>
-  </div>
+    <section id="features" class="band">
+      <div class="wrap">
+        <h2>ما الذي يفعله DreamPulse</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>العدّ من لحظة النوم</h3>
+            <p>تختار المدة وتضغط «ابدأ»، فيبدأ العدّ من الوقت الذي غفوت فيه، لا من وقت استلقائك. والدقائق التي احتجتها حتى تنام لا تُحسب من نومك.</p>
+          </article>
+          <article class="card">
+            <h3>منبّه احتياطي منذ الثانية الأولى</h3>
+            <p>يُضبط لحظة البدء على المدة وساعة إضافية، فتستيقظ حتى لو لم يُكتشف نومك، أو أُعيد تشغيل الساعة في منتصف الليل، حتى قبل فتح قفلها.</p>
+          </article>
+          <article class="card">
+            <h3>موعد استيقاظ إلزامي</h3>
+            <p>إن كان لديك التزام، حدّد وقتاً لا يتجاوزه المنبّه، مثل «ليس بعد السابعة»، مهما تأخّر نومك. وإن سافرت، اتّبع توقيتك الجديد.</p>
+          </article>
+          <article class="card">
+            <h3>استيقاظ ذكي</h3>
+            <p>في الربع ساعة الأخيرة، إن تقلّبت في نوم خفيف أيقظك حينها. ولا تكفي رعشة واحدة، بل يلزم حركتان منفصلتان.</p>
+          </article>
+          <article class="card">
+            <h3>منبّه الشروق</h3>
+            <p>تتدرّج الشاشة من لون الليل إلى لون الفجر، ويتوقّف المنبّه بضغطة مطوّلة في أي مكان أو بهزّة من يدك.</p>
+          </article>
+          <article class="card">
+            <h3>ملخّص الصباح وسجلّ الليالي</h3>
+            <p>كم نمت، وكم احتجت حتى غفوت، وكم استهلكت الليلة من البطارية، لآخر سبع ليالٍ. وينبّهك قبل البدء إن كانت البطارية ضعيفة.</p>
+          </article>
+        </div>
+      </div>
+    </section>
 
-  <div class="links">
-    <a href="https://github.com/SaadHASSON1/DreamPulse"><span data-l="en">Source on GitHub</span><span data-l="ar">الكود على GitHub</span></a>
-    <a href="privacy-policy.html"><span data-l="en">Privacy policy</span><span data-l="ar">سياسة الخصوصية</span></a>
-  </div>
-
-  <div class="shot">
-    <img data-l="en" src="docs/screenshots/showcase-en.png" alt="DreamPulse on a Galaxy Watch7">
-    <img data-l="ar" src="docs/screenshots/showcase-ar.png" alt="DreamPulse على ساعة Galaxy Watch7">
-  </div>
-
-  <h2><span data-l="en">What it does</span><span data-l="ar">ماذا يفعل</span></h2>
-  <ul class="plain" data-l="en">
-    <li><b>Counts from when you fall asleep,</b> not from when you press Start.</li>
-    <li><b>Backup alarm</b> set the second you start (goal + 1 hour), in case sleep is never detected or the watch restarts. I didn't want to trust it before it trusted itself.</li>
-    <li><b>Wake-by time</b> if you have somewhere to be: "never later than 7:00".</li>
-    <li><b>Smart Wake:</b> in the last 15 minutes, if you turn over in light sleep it wakes you then. One twitch isn't enough, it needs two separate movements.</li>
-    <li><b>Sunrise screen</b> when it rings. Hold anywhere or shake your wrist to stop it.</li>
-    <li><b>Morning summary</b> and the last 7 nights, including how much battery the night took.</li>
-    <li>A Tile, a moon on the watch face while it's running, and English, Arabic and Turkish.</li>
-  </ul>
-  <ul class="plain" data-l="ar">
-    <li><b>يبدأ العدّ من لحظة غفوتك،</b> لا من لحظة الضغط على «ابدأ».</li>
-    <li><b>منبّه احتياطي</b> يُضبط منذ الثانية الأولى (المدة + ساعة)، فتستيقظ حتى لو لم يُكتشف النوم أو أُعيد تشغيل الساعة.</li>
-    <li><b>موعد استيقاظ إلزامي</b> إن كان لديك التزام: «ليس بعد السابعة».</li>
-    <li><b>استيقاظ ذكي:</b> في الربع ساعة الأخيرة، إن تقلّبت في نوم خفيف أيقظك حينها. ولا تكفي رعشة واحدة، بل يلزم حركتان منفصلتان.</li>
-    <li><b>شاشة شروق</b> عند الرنين، ويتوقف بضغطة مطوّلة أو بهزّة من يدك.</li>
-    <li><b>ملخّص الصباح</b> وسجل آخر سبع ليالٍ، مع مقدار ما استهلكته الليلة من البطارية.</li>
-    <li>بطاقة Tile، وقمر على وجه الساعة أثناء العمل، وثلاث لغات: العربية والتركية والإنجليزية.</li>
-  </ul>
-
-  <h2><span data-l="en">How it decides you're asleep</span><span data-l="ar">كيف يعرف أنك نمت</span></h2>
-  <p data-l="en">The first version got my first real night wrong. It said I fell asleep at 5:08, Samsung Health said 4:54, and after I woke up at 11:25 it happily decided I was asleep again. So I rewrote the detection around what that night's log actually showed:</p>
-  <p data-l="ar">أخطأت النسخة الأولى في أول ليلة حقيقية: قالت إنني نمت الساعة 5:08 بينما سجّل Samsung Health الساعة 4:54، وبعد أن استيقظت الساعة 11:25 قرّرت أنني نائم من جديد. فأعدت كتابة طريقة الكشف بناءً على ما أظهره سجلّ تلك الليلة فعلاً:</p>
-<pre><span class="c"># awake baseline = median heart rate of the first 3 minutes</span>
+    <section id="how">
+      <div class="wrap split">
+        <div>
+          <h2>كيف يعرف أنك نمت</h2>
+          <p>أخطأت النسخة الأولى في أول ليلة حقيقية: قالت إنني نمت الساعة 5:08، بينما سجّل Samsung Health الساعة 4:54. وبعد أن استيقظت، قرّرت أنني نائم من جديد.</p>
+          <p>فأعدت كتابة طريقة الكشف بناءً على ما أظهره سجلّ تلك الليلة فعلاً. المنطق كله في صنف صغير مغطّى بالاختبارات، ومنها اختبارات مبنية على لياليّ الحقيقية: <a href="https://github.com/SaadHASSON1/DreamPulse/blob/main/app/src/main/java/com/x13labs/dreampulse/domain/SleepDetector.kt">SleepDetector.kt</a>.</p>
+        </div>
+<pre class="rules"><span class="c"># awake baseline = heart rate in the first minutes</span>
 asleep if  still 10 min  and  HR &lt;= baseline - 15%
        or  still 15 min  and  HR &lt;= baseline - 5%
        or  watch says "asleep"  and  still 5 min
        or  still 25 min  <span class="c">(no heart rate available)</span>
 <span class="c"># watch off the wrist -&gt; nothing counts</span>
 
-onset = halfway between last movement and first low HR reading
+onset = halfway between last movement and first low HR
 
 <span class="c"># replaying that night:</span>
 Samsung Health  <span class="y">04:54</span>
 DreamPulse      <span class="g">04:54</span></pre>
-  <p class="quiet" data-l="en">The whole detector is one small Kotlin class with unit tests, including a test built from that night. It's in <a href="https://github.com/SaadHASSON1/DreamPulse/blob/main/app/src/main/java/com/x13labs/dreampulse/domain/SleepDetector.kt">SleepDetector.kt</a>.</p>
-  <p class="quiet" data-l="ar">منطق الكشف كله في صنف Kotlin صغير مغطّى بالاختبارات، ومنها اختبار مبني على تلك الليلة. تجده في <a href="https://github.com/SaadHASSON1/DreamPulse/blob/main/app/src/main/java/com/x13labs/dreampulse/domain/SleepDetector.kt">SleepDetector.kt</a>.</p>
+      </div>
+    </section>
 
-  <h2><span data-l="en">Screens</span><span data-l="ar">الشاشات</span></h2>
-  <p class="quiet"><span data-l="en">Taken on my Galaxy Watch7. The history page is my real nights.</span><span data-l="ar">لقطات من ساعتي Galaxy Watch7، وصفحة السجل تعرض لياليّ الحقيقية.</span></p>
-  <div class="tabs" role="tablist" aria-label="Screenshot language">
-    <button type="button" role="tab" data-gallery="ar" aria-selected="true">العربية</button>
-    <button type="button" role="tab" data-gallery="en" aria-selected="false">English</button>
-    <button type="button" role="tab" data-gallery="tr" aria-selected="false">Türkçe</button>
-  </div>
-  <div class="gallery" id="gallery"></div>
+    <section class="band">
+      <div class="wrap">
+        <h2>الشاشات</h2>
+        <p class="fine" style="margin-top:-.8rem">لقطات من ساعتي Galaxy Watch7، وصفحة السجلّ تعرض لياليّ الحقيقية.</p>
+        <div class="tabs" role="tablist" aria-label="لغة اللقطات">
+          <button type="button" role="tab" data-gallery="ar" aria-selected="true">العربية</button>
+          <button type="button" role="tab" data-gallery="en" aria-selected="false">English</button>
+          <button type="button" role="tab" data-gallery="tr" aria-selected="false">Türkçe</button>
+        </div>
+        <div class="gallery" id="gallery">
+          <figure><img src="docs/screenshots/ar/01-setup.png" alt="مدة النوم" width="360" height="360"><figcaption>مدة النوم</figcaption></figure>
+          <figure><img src="docs/screenshots/ar/05-waiting.png" alt="بانتظار النوم" width="360" height="360"><figcaption>بانتظار النوم</figcaption></figure>
+          <figure><img src="docs/screenshots/ar/07-sunrise.png" alt="منبّه الشروق" width="360" height="360"><figcaption>منبّه الشروق</figcaption></figure>
+          <figure><img src="docs/screenshots/ar/08-summary.png" alt="ملخّص الصباح" width="360" height="360"><figcaption>ملخّص الصباح</figcaption></figure>
+        </div>
+      </div>
+    </section>
 
-  <h2><span data-l="en">Privacy</span><span data-l="ar">الخصوصية</span></h2>
-  <p data-l="en">The app doesn't have internet permission at all, so it couldn't send your data anywhere even if it wanted to. No account, no ads, no analytics. Uninstall it and everything's gone. <a href="privacy-policy.html">Full policy</a>.</p>
-  <p data-l="ar">لا يملك التطبيق إذن الوصول إلى الإنترنت أصلاً، فلا يستطيع إرسال بياناتك إلى أي مكان. لا حساب، ولا إعلانات، ولا تتبّع. وإذا حذفته حُذف كل شيء معه. <a href="privacy-policy.html">السياسة كاملة</a>.</p>
-</main>
+    <section id="privacy">
+      <div class="wrap split">
+        <div>
+          <h2>بياناتك على ساعتك، ولا مكان آخر</h2>
+          <p>لا يملك DreamPulse إذن الاتصال بالإنترنت أصلاً، فلا يستطيع إرسال بياناتك إلى أي مكان حتى لو أراد. <a href="privacy-policy.html">سياسة الخصوصية كاملة</a>.</p>
+        </div>
+        <ul class="checks">
+          <li>نبضك وحركتك وسجلّ نومك تبقى في مساحة التطبيق الخاصة على ساعتك، ولا يقرؤها أي تطبيق آخر.</li>
+          <li>لا حساب تسجّله، ولا إعلانات، ولا أدوات تتبّع أو تحليل.</li>
+          <li>إن تعطّل التطبيق يوماً، يُحفظ تقرير العطل على الساعة فقط، ولا يصل إلينا إلا إن أرسلته أنت.</li>
+          <li>احذف التطبيق، يُحذف كل شيء معه.</li>
+        </ul>
+      </div>
+    </section>
 
-<footer>
-  © 2026 Saad Hasson · X13LABS · <a href="mailto:contact@x13labs.com">contact@x13labs.com</a>
-</footer>
-</div>
+    <section class="band">
+      <div class="wrap">
+        <h2>ثلاث خطوات كل ليلة</h2>
+        <ol class="steps">
+          <li><strong>اختر مدة نومك</strong><span>بعجلتين كعجلات منبّه الساعة نفسها، ومعها موعد استيقاظ إلزامي إن أردت.</span></li>
+          <li><strong>اضغط «ابدأ» واسترخِ</strong><span>تنفّس مع الدائرة. يظهر قمر على واجهة الساعة ما دام التطبيق يعمل.</span></li>
+          <li><strong>نَم</strong><span>حين تغفو يضبط المنبّه من تلك اللحظة، ويوقظك بشروق هادئ.</span></li>
+        </ol>
+      </div>
+    </section>
 
-<script>
-  var SCREENS = ["01-setup", "02-duration", "05-waiting", "06-alarm", "07-sunrise", "08-summary", "03-history", "04-settings"];
+    <section id="download">
+      <div class="wrap download">
+        <img src="web/mark.png" alt="" width="72" height="72">
+        <h2>DreamPulse على ساعتك</h2>
+        <p>قريباً على Google Play لساعات Wear OS 3 أو أحدث التي فيها حسّاس لنبض القلب. جُرِّب على Samsung Galaxy Watch7.</p>
+        <a class="btn btn-primary btn-large" href="mailto:contact@x13labs.com?subject=DreamPulse%20tester">انضمّ إلى التجربة</a>
+        <p class="fine">الشيفرة كاملة على <a href="https://github.com/SaadHASSON1/DreamPulse">GitHub</a>.</p>
+        <p class="note">DreamPulse الآن في مرحلة التجربة المغلقة قبل النشر للجميع. إن كانت لديك ساعة بنظام Wear OS، راسلنا ببريدك في جوجل لتنضمّ إلى المجرّبين.</p>
+      </div>
+    </section>
 
-  function renderGallery(lang) {
-    var g = document.getElementById("gallery");
-    g.innerHTML = "";
-    SCREENS.forEach(function (s) {
-      var img = document.createElement("img");
-      img.src = "docs/screenshots/" + lang + "/" + s + ".png";
-      img.alt = s.slice(3);
-      img.loading = "lazy";
-      img.width = 360; img.height = 360;
-      g.appendChild(img);
-    });
-    document.querySelectorAll("[data-gallery]").forEach(function (b) {
-      b.setAttribute("aria-selected", String(b.dataset.gallery === lang));
-    });
-  }
+    <section id="faq" class="band">
+      <div class="wrap narrow">
+        <h2>أسئلة شائعة</h2>
+        <details>
+          <summary>هل يعمل على ساعتي؟</summary>
+          <p>يعمل على ساعات Wear OS 3 أو أحدث التي فيها حسّاس لنبض القلب، مثل ساعات سامسونج جالاكسي من الجيل الرابع فما بعد وساعات جوجل بكسل. جُرِّب حتى الآن على Galaxy Watch7.</p>
+        </details>
+        <details>
+          <summary>ماذا لو لم يكتشف نومي؟</summary>
+          <p>يرنّ المنبّه الاحتياطي الذي ضُبط لحظة البدء: المدة التي اخترتها وساعة إضافية، أو موعد الاستيقاظ الإلزامي إن كان أقرب.</p>
+        </details>
+        <details>
+          <summary>كم يستهلك من البطارية؟</summary>
+          <p>نحو سبعة عشر بالمئة في الليلة على Galaxy Watch7. لذلك ينبّهك إن بدأت الليلة والبطارية أقل من عشرين بالمئة.</p>
+        </details>
+        <details>
+          <summary>ماذا لو نزعت الساعة في منتصف الليل؟</summary>
+          <p>يتوقّف الكشف ما دامت الساعة خارج معصمك، فلا تُعدّ ساعة على طاولة نائمة. ويبقى المنبّه الاحتياطي في موعده.</p>
+        </details>
+        <details>
+          <summary>هل هو جهاز طبي؟</summary>
+          <p>لا. DreamPulse منبّه، ولا يُقصد به تشخيص أي مرض أو علاجه.</p>
+        </details>
+      </div>
+    </section>
 
-  function setLang(lang) {
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-    document.querySelectorAll("[data-set-lang]").forEach(function (b) {
-      b.setAttribute("aria-pressed", String(b.dataset.setLang === lang));
-    });
-    try { localStorage.setItem("dp-lang", lang); } catch (e) {}
-    renderGallery(lang);
-  }
+    <section lang="en" dir="ltr" class="en">
+      <div class="wrap narrow">
+        <h2>About DreamPulse (English)</h2>
+        <p>DreamPulse is a sleep alarm for Wear OS watches that starts counting when you actually fall asleep, not when you go to bed. It reads heart rate and movement, detects sleep onset, and sets the alarm from that moment. A backup alarm is set the second you start, an optional wake-by time caps the night, and Smart Wake rings a little early if you turn over in light sleep during the last 15 minutes.</p>
+        <p>DreamPulse has no internet permission: heart rate, movement and sleep history never leave the watch. No account, no ads, no analytics. Available in English, Arabic and Turkish. See the <a href="privacy-policy.html">Privacy Policy</a>. Contact: <a href="mailto:contact@x13labs.com">contact@x13labs.com</a>.</p>
+      </div>
+    </section>
+  </main>
 
-  document.querySelectorAll("[data-set-lang]").forEach(function (b) {
-    b.addEventListener("click", function () { setLang(b.dataset.setLang); });
-  });
-  document.querySelectorAll("[data-gallery]").forEach(function (b) {
-    b.addEventListener("click", function () { renderGallery(b.dataset.gallery); });
-  });
-
-  var saved = null;
-  try { saved = localStorage.getItem("dp-lang"); } catch (e) {}
-  setLang(saved || "ar");
-</script>
+  <footer>
+    <div class="wrap foot-row">
+      <span>© 2026 DreamPulse — X13LABS</span>
+      <nav aria-label="روابط">
+        <a href="privacy-policy.html">سياسة الخصوصية</a>
+        <a href="https://github.com/SaadHASSON1/DreamPulse">GitHub</a>
+        <a href="mailto:contact@x13labs.com">تواصل</a>
+      </nav>
+    </div>
+  </footer>
 </body>
 </html>
