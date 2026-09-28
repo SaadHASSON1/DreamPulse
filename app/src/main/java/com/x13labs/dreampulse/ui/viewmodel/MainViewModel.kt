@@ -17,11 +17,11 @@ import com.x13labs.dreampulse.service.SleepMonitorService
 import com.x13labs.dreampulse.tile.SleepTileService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -43,9 +43,13 @@ class MainViewModel @Inject constructor(
     private val _sleepDurationMinutes = MutableStateFlow(480)
     val sleepDurationMinutes: StateFlow<Int> = _sleepDurationMinutes
 
-    /** The Activity listens to this to run its permission checks before starting. */
-    private val _needsPermissionCheck = MutableSharedFlow<Unit>(replay = 1, extraBufferCapacity = 1)
-    val needsPermissionCheck = _needsPermissionCheck.asSharedFlow()
+    /**
+     * The Activity listens to this to run its permission checks before starting. Each press is
+     * delivered exactly once: a replaying flow re-delivered the last press to the recreated
+     * Activity after a language change, silently starting a new night (seen 2026-09-28).
+     */
+    private val _needsPermissionCheck = Channel<Unit>(Channel.CONFLATED)
+    val needsPermissionCheck = _needsPermissionCheck.receiveAsFlow()
 
     val isOnBody: StateFlow<Boolean> = healthServicesManager.isOnBody
 
@@ -91,7 +95,7 @@ class MainViewModel @Inject constructor(
     /** Called by the Start button: the Activity checks permissions, then calls [executeStartTracking]. */
     fun startTracking() {
         if (isTrackingState.value) return
-        _needsPermissionCheck.tryEmit(Unit)
+        _needsPermissionCheck.trySend(Unit)
     }
 
     /** Called only by the Activity, once every permission is granted. */

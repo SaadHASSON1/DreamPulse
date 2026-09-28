@@ -34,11 +34,11 @@
     <string name="stop">Durdur</string>
     <string name="perm_title">Alarm ekranına izin ver</string>
     <string name="perm_body">Alarm çaldığında kendiliğinden açılabilsin.</string>
-    <string name="perm_open">Ayarları aç</string>
+    <string name="perm_open">Ayarlar</string>
     <string name="perm_skip">Geç</string>
     <string name="perm_denied">Başlamak için sensör erişimine (her zaman) izin ver</string>
     <string name="samsung_title">DreamPulse\'u uyanık tut</string>
-    <string name="samsung_body">Alarmın her zaman çalması için pil ayarlarında DreamPulse\'u \"Hiç uyumayan uygulamalar\"a ekle.</string>
+    <string name="samsung_body">Alarm hep çalsın diye \"Hiç uyumayan uygulamalar\"a ekle.</string>
     <string name="notif_monitoring">Uyku bekleniyor</string>
     <string name="notif_monitoring_text">İyi uykular. Geri sayım uyuyunca başlar.</string>
     <string name="notif_alarm_set">Alarm %1$s</string>

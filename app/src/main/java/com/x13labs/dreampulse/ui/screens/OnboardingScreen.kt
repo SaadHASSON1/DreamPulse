@@ -1,10 +1,17 @@
 package com.x13labs.dreampulse.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -12,19 +19,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
-import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
-import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.EdgeButton
+import androidx.wear.compose.material3.EdgeButtonSize
 import androidx.wear.compose.material3.Text
 import com.x13labs.dreampulse.R
 import com.x13labs.dreampulse.ui.components.Moon
+import com.x13labs.dreampulse.ui.components.StarField
 import com.x13labs.dreampulse.ui.theme.Dream
 
 /** One screen of the first-run introduction; the Activity drops the ones already granted. */
@@ -42,6 +49,9 @@ enum class OnboardingStep(val title: Int, val body: Int, val action: Int, val sk
  * Explains the idea, then asks for each permission on its own screen with the reason next
  * to it, instead of a burst of system dialogs the moment the app opens.
  *
+ * Laid out like the setup screen: the text in the middle and the main action as the edge
+ * button, always in the same place and at full strength ("Skip" is a small link above it).
+ *
  * [onAction] runs a step (asks for the permission, opens a settings page) and calls its
  * `done` callback when the user may move on, whatever they chose.
  */
@@ -58,50 +68,45 @@ fun OnboardingScreen(
     val next = {
         if (index >= steps.lastIndex) onFinish() else currentName = steps[index + 1].name
     }
-    val listState = rememberScalingLazyListState()
+    val primary = { if (step == OnboardingStep.WELCOME || step == OnboardingStep.READY) next() else onAction(step, next) }
+    val showMoon = step == OnboardingStep.WELCOME || step == OnboardingStep.READY
 
-    ScreenScaffold(scrollState = listState) { padding ->
-        ScalingLazyColumn(
-            state = listState,
-            contentPadding = padding,
-            modifier = Modifier.fillMaxSize().background(Dream.Sky),
+    Box(Modifier.fillMaxSize().background(Dream.Sky)) {
+        StarField()
+        // Between the top of the round screen and the edge button; scrolls only if a
+        // translation is too long for the space.
+        Column(
+            Modifier.fillMaxSize()
+                .padding(start = 26.dp, end = 26.dp, top = 30.dp, bottom = 64.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            if (step == OnboardingStep.WELCOME || step == OnboardingStep.READY) {
-                item { Moon(size = 34.dp) }
+            if (showMoon) {
+                Moon(size = 30.dp)
+                Spacer(Modifier.height(6.dp))
             }
-            item {
-                Text(
-                    stringResource(step.title), fontSize = 16.sp, fontWeight = FontWeight.Medium,
-                    color = Dream.MoonLight, textAlign = TextAlign.Center,
-                )
-            }
-            item {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(step.body), fontSize = 13.sp, color = Dream.Moon, textAlign = TextAlign.Center)
-                }
-            }
-            item {
-                Button(
-                    onClick = { if (step == OnboardingStep.WELCOME || step == OnboardingStep.READY) next() else onAction(step, next) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Dream.MoonDeep, contentColor = Dream.MoonLight),
-                ) { Text(stringResource(step.action), maxLines = 1) }
-            }
+            Text(
+                stringResource(step.title), fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                color = Dream.MoonLight, textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(stringResource(step.body), fontSize = 12.sp, color = Dream.Moon, textAlign = TextAlign.Center)
             if (step.skippable) {
-                item {
-                    Button(
-                        onClick = next,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Dream.Track, contentColor = Dream.Muted),
-                    ) { Text(stringResource(R.string.perm_skip), maxLines = 1) }
-                }
-            }
-            item {
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    "${index + 1} / ${steps.size}", fontSize = 10.sp, color = Dream.Muted,
-                    modifier = Modifier.padding(top = 4.dp),
+                    stringResource(R.string.perm_skip), fontSize = 12.sp, color = Dream.Muted,
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = next)
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
                 )
             }
         }
+
+        EdgeButton(
+            onClick = primary,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            buttonSize = EdgeButtonSize.Small,
+            colors = ButtonDefaults.buttonColors(containerColor = Dream.MoonDeep, contentColor = Dream.MoonLight),
+        ) { Text(stringResource(step.action), maxLines = 1) }
     }
 }
