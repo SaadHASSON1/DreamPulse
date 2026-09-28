@@ -26,7 +26,7 @@ class NotificationHelper @Inject constructor(
     private fun createNotificationChannels() {
         val trackingChannel = NotificationChannel(
             TRACKING_CHANNEL_ID,
-            "Sleep Tracking Status",
+            context.getString(R.string.channel_tracking),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Shows live sleep tracking data"
@@ -37,7 +37,7 @@ class NotificationHelper @Inject constructor(
         
         val alarmChannel = NotificationChannel(
             ALARM_CHANNEL_ID,
-            "Sleep Alarms",
+            context.getString(R.string.channel_alarms),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Channel for sleep alarms"
@@ -92,6 +92,35 @@ class NotificationHelper @Inject constructor(
             .setAutoCancel(false)
             .setSilent(false)
             .build()
+    }
+
+    /**
+     * Ongoing tracking notification. Wrapped in an Ongoing Activity so a moon chip shows on
+     * the watch face and in recents while a session runs; tapping it reopens the app.
+     */
+    fun buildTracking(title: String, text: String): Notification {
+        val open = PendingIntent.getActivity(
+            context, 3001,
+            Intent(context, com.x13labs.dreampulse.ui.MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val builder = NotificationCompat.Builder(context, TRACKING_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_moon)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setOngoing(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_STOPWATCH)
+            .setContentIntent(open)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        androidx.wear.ongoing.OngoingActivity.Builder(context, NOTIFICATION_ID, builder)
+            .setStaticIcon(R.drawable.ic_moon)
+            .setTouchIntent(open)
+            .setStatus(androidx.wear.ongoing.Status.forPart(androidx.wear.ongoing.Status.TextPart(title)))
+            .build()
+            .apply(context)
+        return builder.build()
     }
 
     companion object {

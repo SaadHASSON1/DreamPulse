@@ -1,601 +1,396 @@
 package com.x13labs.dreampulse.ui.screens
 
-import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.wear.compose.material.*
-import com.x13labs.dreampulse.domain.model.SleepState
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.foundation.pager.HorizontalPager
+import androidx.wear.compose.foundation.pager.rememberPagerState
+import androidx.wear.compose.material3.AppScaffold
+import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.ButtonDefaults
+import androidx.wear.compose.material3.EdgeButton
+import androidx.wear.compose.material3.EdgeButtonSize
+import androidx.wear.compose.material3.PickerGroup
+import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.SwitchButton
+import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.TimePicker
+import androidx.wear.compose.material3.rememberPickerState
+import androidx.wear.compose.navigation.SwipeDismissableNavHost
+import androidx.wear.compose.navigation.composable
+import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
+import com.x13labs.dreampulse.R
+import com.x13labs.dreampulse.ui.components.EdgeRing
+import com.x13labs.dreampulse.ui.components.StarField
+import com.x13labs.dreampulse.ui.components.formatDuration
+import com.x13labs.dreampulse.ui.components.formatMinutesOfDay
+import com.x13labs.dreampulse.ui.theme.Dream
 import com.x13labs.dreampulse.ui.viewmodel.MainViewModel
+import com.x13labs.dreampulse.util.AppLanguage
+import java.time.LocalTime
 
+private const val MIN_SLEEP = 5
+private const val MAX_HOURS = 12
+private const val MINUTE_STEP = 5
+
+/**
+ * Navigation map
+ *  home      pager [Setup | History | Settings] when idle, Tracking while a session runs
+ *  duration  wheel pickers for hours and minutes
+ *  deadline  system time picker for the wake-by time
+ *  language  language list
+ * Pushed screens go back with a swipe in from the left edge.
+ */
 @Composable
-fun StarryBackground(modifier: Modifier = Modifier) {
-    // Cache star positions — computed once, drawn every frame without recalculation
-    val stars = remember {
-        val random = java.util.Random(42)
-        List(60) {
-            Triple(
-                random.nextFloat(), // x ratio
-                random.nextFloat(), // y ratio
-                random.nextFloat() * 0.3f + 0.1f // alpha
-            )
-        }
-    }
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .graphicsLayer(alpha = 0.99f)
-            .drawBehind {
-                stars.forEach { (xRatio, yRatio, alpha) ->
-                    drawCircle(
-                        color = Color.White.copy(alpha = alpha),
-                        radius = 1.1f,
-                        center = androidx.compose.ui.geometry.Offset(
-                            xRatio * size.width,
-                            yRatio * size.height
-                        )
-                    )
-                }
-            }
-    )
-}
-
-@Composable
-fun MainScreen(viewModel: MainViewModel = hiltViewModel()) {
-    val isTracking by viewModel.isTrackingState.collectAsState()
-    val context = LocalContext.current
-
-    // Show permission screen only if:
-    // 1. Android 14+ device
-    // 2. Permission not yet granted
-    // 3. User hasn't dismissed it before
-    val needsPermission = remember {
-        val prefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-        val dismissed = prefs.getBoolean("perm_screen_dismissed", false)
-        if (dismissed) return@remember false
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val nm = context.getSystemService(android.app.NotificationManager::class.java)
-            !nm.canUseFullScreenIntent()
-        } else false
-    }
-
-    var showPermissionScreen by remember { mutableStateOf(needsPermission) }
-    var showWelcome by remember { mutableStateOf(true) }
-
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        StarryBackground()
-
-        if (showPermissionScreen) {
-            PermissionSetupScreen(
-                onDismiss = { showPermissionScreen = false }
-            )
-        } else {
-            Crossfade(
-                targetState = if (showWelcome) "welcome" else if (isTracking) "tracking" else "setup",
-                animationSpec = tween(500, easing = LinearEasing),
-                label = "MainScreenTransition"
-            ) { state ->
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    when (state) {
-                        "welcome"  -> WelcomeScreen(onStart = { showWelcome = false })
-                        "setup"    -> SetupScreen(viewModel = viewModel, onBack = { showWelcome = true })
-                        "tracking" -> MonitoringScreen(viewModel = viewModel)
-                    }
-                }
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Permission Setup Screen — shown once on Android 14+
-// ─────────────────────────────────────────────────────────────
-@Composable
-fun PermissionSetupScreen(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-
-    // Helper to permanently dismiss this screen
-    fun dismiss() {
-        context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-            .edit().putBoolean("perm_screen_dismissed", true).apply()
-        onDismiss()
-    }
-
-    // Poll every second — auto-dismiss when permission is granted
-    LaunchedEffect(Unit) {
-        while (true) {
-            kotlinx.coroutines.delay(1000)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                val nm = context.getSystemService(android.app.NotificationManager::class.java)
-                if (nm.canUseFullScreenIntent()) {
-                    dismiss()
-                    break
-                }
-            }
-        }
-    }
-
-    val infiniteTransition = rememberInfiniteTransition(label = "perm_pulse")
-    val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.85f, targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
-        label = "perm_scale"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        // Warning icon
-        Text(
-            text = "⚠️",
-            fontSize = 26.sp,
-            modifier = Modifier.graphicsLayer { scaleX = pulse; scaleY = pulse }
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Permission Required",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFFFF5252),
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(5.dp))
-
-        Text(
-            text = "Enable \"Full-screen intents\" so the alarm screen appears automatically.",
-            fontSize = 10.sp,
-            color = Color.White.copy(alpha = 0.8f),
-            textAlign = TextAlign.Center,
-            lineHeight = 14.sp
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Open Settings button
-        Button(
-            onClick = {
-                try {
-                    val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
-                        data = android.net.Uri.parse("package:${context.packageName}")
-                    }
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    context.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))
-                }
-            },
-            modifier = Modifier.fillMaxWidth(0.82f).height(38.dp),
-            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFFF5252)),
-            shape = RoundedCornerShape(19.dp)
-        ) {
-            Text("Open Settings", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Skip — saves flag so this screen never appears again
-        Text(
-            text = "Skip",
-            fontSize = 9.sp,
-            color = Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.clickable { dismiss() }
-        )
-    }
-}
-
-
-@Composable
-fun WelcomeScreen(onStart: () -> Unit) {
-    val infiniteTransition = rememberInfiniteTransition()
-    val angleState by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(15000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        )
-    )
-
-    val context = LocalContext.current
-    val appIcon = remember {
-        try {
-            val drawable = context.packageManager.getApplicationIcon(context.packageName)
-            val bitmap = Bitmap.createBitmap(
-                drawable.intrinsicWidth.coerceAtLeast(1),
-                drawable.intrinsicHeight.coerceAtLeast(1),
-                Bitmap.Config.ARGB_8888
-            )
-            val canvas = Canvas(bitmap)
-            drawable.setBounds(0, 0, canvas.width, canvas.height)
-            drawable.draw(canvas)
-            bitmap.asImageBitmap()
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceEvenly
-    ) {
-        Box(
-            modifier = Modifier.size(80.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            // Single shared pulse animation instead of 8 separate ones
-            val pulse by infiniteTransition.animateFloat(
-                initialValue = 0.4f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(2500, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse
-                )
-            )
-            repeat(8) { i ->
-                val startAngle = i * 45f
-                val currentAngle = (startAngle + angleState) % 360f
-                val rad = Math.toRadians(currentAngle.toDouble())
-                // Stagger the pulse per dot using a phase offset
-                val dotAlpha = (pulse + i * 0.08f).coerceIn(0.2f, 1f)
-                val x = (Math.cos(rad) * 36).dp
-                val y = (Math.sin(rad) * 36).dp
-                Box(
-                    modifier = Modifier
-                        .offset(x, y)
-                        .size(if (i % 2 == 0) 3.5.dp else 2.5.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = dotAlpha))
+fun MainScreen(viewModel: MainViewModel) {
+    val nav = rememberSwipeDismissableNavController()
+    AppScaffold(timeText = {}) {
+        SwipeDismissableNavHost(navController = nav, startDestination = "home") {
+            composable("home") {
+                HomeScreen(
+                    viewModel,
+                    onEditDuration = { nav.navigate("duration") },
+                    onEditDeadline = { nav.navigate("deadline") },
+                    onLanguage = { nav.navigate("language") },
                 )
             }
-
-            if (appIcon != null) {
-                Image(
-                    bitmap = appIcon!!,
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(62.dp)
-                )
-            }
+            composable("duration") { DurationScreen(viewModel, onDone = { nav.popBackStack() }) }
+            composable("deadline") { DeadlineScreen(viewModel, onDone = { nav.popBackStack() }) }
+            composable("language") { LanguageScreen(onDone = { nav.popBackStack() }) }
         }
-
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "DreamPulse",
-                style = MaterialTheme.typography.title3,
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Sleep Smarter",
-                style = MaterialTheme.typography.caption1,
-                color = Color(0xFF90CAF9),
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Button(
-            onClick = onStart,
-            modifier = Modifier.fillMaxWidth(0.65f).height(38.dp),
-            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF3F51B5))
-        ) {
-            Text("START", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        }
-
-        Text(
-            text = "by Saad HASSON (X13LABS)",
-            style = MaterialTheme.typography.caption2,
-            color = Color(0xFF90CAF9).copy(alpha = 0.6f),
-            fontSize = 8.sp
-        )
     }
 }
 
 @Composable
-fun SetupScreen(
+private fun HomeScreen(
     viewModel: MainViewModel,
-    onBack: () -> Unit
+    onEditDuration: () -> Unit,
+    onEditDeadline: () -> Unit,
+    onLanguage: () -> Unit,
 ) {
-    androidx.activity.compose.BackHandler(onBack = onBack)
-    val durationMin by viewModel.sleepDurationMinutes.collectAsState()
-    val lastSleepSummary by viewModel.lastSleepSummary.collectAsState()
-    val deadlineEnabled by viewModel.hardDeadlineEnabled.collectAsState()
-    val deadlineMinutes by viewModel.hardDeadlineMinutes.collectAsState()
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.weight(0.14f))
-        
-        Text(
-            text = "WAKE ME UP IN",
-            style = MaterialTheme.typography.caption1,
-            color = Color(0xFF90CAF9),
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.weight(0.07f))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                SmallBtn("-30") { viewModel.setDuration((durationMin - 30).coerceAtLeast(1)) }
-                Spacer(modifier = Modifier.height(6.dp))
-                SmallBtn("-") { viewModel.setDuration((durationMin - 1).coerceAtLeast(1)) }
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = String.format("%02dh", durationMin / 60),
-                    fontSize = 22.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = String.format("%02dm", durationMin % 60),
-                    fontSize = 22.sp,
-                    color = Color(0xFF90CAF9),
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                SmallBtn("+30") { viewModel.setDuration((durationMin + 30).coerceAtMost(720)) }
-                Spacer(modifier = Modifier.height(6.dp))
-                SmallBtn("+") { viewModel.setDuration((durationMin + 1).coerceAtMost(720)) }
-            }
+    val isTracking by viewModel.isTrackingState.collectAsState()
+    if (isTracking) {
+        TrackingScreen(viewModel)
+        return
+    }
+    val pager = rememberPagerState(pageCount = { 3 })
+    // All three pages are light: compose them up front so the first swipe doesn't stall
+    // while the neighbouring page is built mid-gesture.
+    HorizontalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 2) { page ->
+        when (page) {
+            0 -> SetupScreen(viewModel, onEditDuration, onEditDeadline)
+            1 -> HistoryScreen()
+            else -> SettingsScreen(viewModel, onEditDeadline, onLanguage)
         }
+    }
+}
 
-        Spacer(modifier = Modifier.weight(0.05f))
-
-        // Hard Deadline Row
-        if (!deadlineEnabled) {
+/** Small dots at the top: "there is another page to the side". */
+@Composable
+private fun PageDots(selected: Int, count: Int, modifier: Modifier = Modifier) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        repeat(count) { i ->
             Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.7f)
-                    .height(30.dp)
-                    .clip(RoundedCornerShape(15.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-                    .clickable { viewModel.toggleHardDeadline() },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "⏰ Set deadline",
-                    fontSize = 10.sp,
-                    color = Color.White.copy(alpha = 0.4f),
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(0.75f).height(30.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .clickable { viewModel.adjustHardDeadline(-15) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("−", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                Text(
-                    text = "⏰ ${String.format("%02d:%02d", deadlineMinutes / 60, deadlineMinutes % 60)}",
-                    fontSize = 13.sp,
-                    color = Color(0xFFFFAB40),
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { viewModel.toggleHardDeadline() }
-                )
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .clickable { viewModel.adjustHardDeadline(15) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-            }
+                Modifier.size(5.dp).clip(CircleShape)
+                    .background(if (i == selected) Dream.MoonLight else Dream.Track)
+            )
         }
-
-        Spacer(modifier = Modifier.weight(0.05f))
-
-        Button(
-            onClick = { viewModel.startTracking() },
-            modifier = Modifier.fillMaxWidth(0.5f).height(44.dp),
-            colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFF3F51B5)),
-            shape = RoundedCornerShape(22.dp)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "START", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text(text = "TRACKING", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        if (lastSleepSummary != "No data available") {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = lastSleepSummary, fontSize = 9.sp, color = Color.White.copy(alpha = 0.7f), textAlign = TextAlign.Center)
-        }
-
-        Spacer(modifier = Modifier.weight(0.06f))
     }
 }
 
 @Composable
-fun MonitoringScreen(
-    viewModel: MainViewModel
-) {
-    val sleepState by viewModel.currentSleepState.collectAsState()
-    val heartRate by viewModel.currentHeartRate.collectAsState()
-    val isOnBody by viewModel.isOnBody.collectAsState()
-
-    val infiniteTransition = rememberInfiniteTransition()
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun Chip(text: String, textColor: Color, background: Color, onClick: () -> Unit) {
+    Box(
+        Modifier.clip(RoundedCornerShape(14.dp)).background(background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 5.dp)
+            .widthIn(max = 124.dp),
     ) {
-        Spacer(modifier = Modifier.weight(0.15f))
+        Text(text, fontSize = 11.sp, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
 
-        Box(
-            modifier = Modifier.size(80.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = com.x13labs.dreampulse.R.drawable.ic_realistic_moon),
-                contentDescription = "Moon",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = pulseScale
-                        scaleY = pulseScale
-                        // Optimization: Fix the layer to prevent the parent from shaking
-                        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen
-                    }
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-        }
+// Setup
 
-        Spacer(modifier = Modifier.weight(0.12f))
+/**
+ * The ring only shows the chosen duration (no dragging: a thin ring under a finger was
+ * hard to control and fought with page swipes). Tap the number to change it.
+ */
+@Composable
+private fun SetupScreen(viewModel: MainViewModel, onEditDuration: () -> Unit, onEditDeadline: () -> Unit) {
+    val context = LocalContext.current
+    val duration by viewModel.sleepDurationMinutes.collectAsState()
+    val deadlineOn by viewModel.hardDeadlineEnabled.collectAsState()
+    val deadlineMin by viewModel.hardDeadlineMinutes.collectAsState()
 
+    Box(Modifier.fillMaxSize().background(Dream.Sky)) {
+        StarField()
+        EdgeRing(fraction = { duration / (MAX_HOURS * 60f) }, color = Dream.Moon, track = Dream.Track, knob = true)
+        PageDots(0, 3, Modifier.align(Alignment.TopCenter).padding(top = 22.dp))
+
+        // Content lives between the dots (top) and the edge button (bottom): the column's
+        // padding reserves both areas, so nothing can overlap them.
         Column(
+            Modifier.fillMaxSize().padding(top = 34.dp, bottom = 62.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth(0.85f).padding(vertical = 4.dp)
+            verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = if (sleepState == SleepState.ASLEEP) "Sweet Dreams" else "Monitoring Sleep",
-                fontSize = 16.sp,
-                color = if (sleepState == SleepState.ASLEEP) Color(0xFF81C784) else Color(0xFF90CAF9),
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
+            Column(
+                Modifier.clip(RoundedCornerShape(18.dp)).clickable(onClick = onEditDuration)
+                    .padding(horizontal = 14.dp, vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(stringResource(R.string.sleep_goal), fontSize = 12.sp, color = Dream.Muted, maxLines = 1)
+                Text(formatDuration(duration), fontSize = 36.sp, fontWeight = FontWeight.Medium, color = Dream.MoonLight, maxLines = 1)
+                Text(stringResource(R.string.tap_to_change), fontSize = 10.sp, color = Dream.MoonMid, maxLines = 1)
+            }
+            Spacer(Modifier.height(4.dp))
+            Chip(
+                text = if (deadlineOn) stringResource(R.string.wake_by, formatMinutesOfDay(context, deadlineMin))
+                else stringResource(R.string.wake_by_off),
+                textColor = if (deadlineOn) Dream.Sun else Dream.Muted,
+                background = Dream.Track,
+                onClick = onEditDeadline,
             )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("💓", fontSize = 10.sp)
-                    Text(
-                        text = " ${heartRate.toInt()}", 
-                        style = MaterialTheme.typography.caption2, 
-                        color = Color(0xFFF44336),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(if (isOnBody) Color(0xFF81C784) else Color.Gray))
-                    Text(
-                        text = " Active", 
-                        style = MaterialTheme.typography.caption2, 
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
         }
 
-        Spacer(modifier = Modifier.weight(0.18f))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(0.8f).padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+        EdgeButton(
+            onClick = { viewModel.startTracking() },
+            modifier = Modifier.align(Alignment.BottomCenter),
+            buttonSize = EdgeButtonSize.Small,
+            colors = ButtonDefaults.buttonColors(containerColor = Dream.MoonDeep, contentColor = Dream.MoonLight),
         ) {
-            Button(
-                onClick = { viewModel.stopTracking() },
-                modifier = Modifier.height(38.dp).weight(1f).padding(end = 8.dp),
-                colors = ButtonDefaults.buttonColors(backgroundColor = Color(0xFFB71C1C)),
-                shape = RoundedCornerShape(19.dp)
-            ) {
-                Text(text = "STOP", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-            
-            Button(
-                onClick = { viewModel.simulateSleep() },
-                modifier = Modifier.size(38.dp),
-                colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color.White.copy(alpha = 0.1f)),
-                shape = CircleShape
-            ) {
-                Text(text = "SM", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.start), maxLines = 1)
+        }
+    }
+}
+
+// Duration: two wheels, like the watch's own timer and alarm apps
+
+@Composable
+private fun DurationScreen(viewModel: MainViewModel, onDone: () -> Unit) {
+    val current = viewModel.sleepDurationMinutes.collectAsState().value
+    val hours = rememberPickerState(initialNumberOfOptions = MAX_HOURS + 1, initiallySelectedIndex = (current / 60).coerceIn(0, MAX_HOURS))
+    val minutes = rememberPickerState(initialNumberOfOptions = 60 / MINUTE_STEP, initiallySelectedIndex = (current % 60) / MINUTE_STEP)
+    var selected by remember { mutableIntStateOf(0) }
+    val hoursLabel = stringResource(R.string.hours)
+    val minutesLabel = stringResource(R.string.minutes)
+
+    Box(Modifier.fillMaxSize().background(Dream.Sky)) {
+        Column(
+            Modifier.fillMaxSize().padding(top = 26.dp, bottom = 58.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(stringResource(R.string.sleep_goal), fontSize = 12.sp, color = Dream.Muted, maxLines = 1)
+            Spacer(Modifier.height(4.dp))
+            // Numbers read left-to-right (hours:minutes) in every language
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                PickerGroup(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    selectedPickerState = if (selected == 0) hours else minutes,
+                    autoCenter = false,
+                ) {
+                    PickerGroupItem(
+                        pickerState = hours,
+                        selected = selected == 0,
+                        onSelected = { selected = 0 },
+                        modifier = Modifier.width(64.dp),
+                        contentDescription = { "${hours.selectedOptionIndex} $hoursLabel" },
+                    ) { index, isSelected ->
+                        WheelNumber(index, isSelected)
+                    }
+                    Text(":", fontSize = 30.sp, color = Dream.MoonLight, modifier = Modifier.padding(horizontal = 2.dp))
+                    PickerGroupItem(
+                        pickerState = minutes,
+                        selected = selected == 1,
+                        onSelected = { selected = 1 },
+                        modifier = Modifier.width(64.dp),
+                        contentDescription = { "${minutes.selectedOptionIndex * MINUTE_STEP} $minutesLabel" },
+                    ) { index, isSelected ->
+                        WheelNumber(index * MINUTE_STEP, isSelected)
+                    }
+                }
             }
         }
-
-        Spacer(modifier = Modifier.weight(0.1f))
+        EdgeButton(
+            onClick = {
+                val total = hours.selectedOptionIndex * 60 + minutes.selectedOptionIndex * MINUTE_STEP
+                viewModel.setDuration(total.coerceAtLeast(MIN_SLEEP))
+                onDone()
+            },
+            modifier = Modifier.align(Alignment.BottomCenter),
+            buttonSize = EdgeButtonSize.Small,
+            colors = ButtonDefaults.buttonColors(containerColor = Dream.MoonDeep, contentColor = Dream.MoonLight),
+        ) { Text(stringResource(R.string.done), maxLines = 1) }
     }
 }
 
 @Composable
-fun SmallBtn(text: String, onClick: () -> Unit) {
+private fun WheelNumber(value: Int, selected: Boolean) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Text(
+            String.format(java.util.Locale.ROOT, "%02d", value),
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (selected) Dream.MoonLight else Dream.Muted,
+        )
+    }
+}
+
+// Wake-by time: the standard system time picker (12/24 h follows the watch setting)
+
+@Composable
+private fun DeadlineScreen(viewModel: MainViewModel, onDone: () -> Unit) {
+    val minutes = viewModel.hardDeadlineMinutes.collectAsState().value
+    TimePicker(
+        initialTime = LocalTime.of(minutes / 60, minutes % 60),
+        onTimePicked = { t ->
+            viewModel.setHardDeadlineMinutes(t.hour * 60 + t.minute)
+            viewModel.setHardDeadlineEnabled(true)
+            onDone()
+        },
+    )
+}
+
+// Settings (second pager page)
+
+@Composable
+private fun SettingsScreen(viewModel: MainViewModel, onEditDeadline: () -> Unit, onLanguage: () -> Unit) {
+    val context = LocalContext.current
+    val deadlineOn by viewModel.hardDeadlineEnabled.collectAsState()
+    val deadlineMin by viewModel.hardDeadlineMinutes.collectAsState()
+    val listState = rememberScalingLazyListState()
+    val version = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: ""
+    }
+    val lang = AppLanguage.current(context)
+
+    ScreenScaffold(scrollState = listState) { padding ->
+        ScalingLazyColumn(
+            state = listState,
+            contentPadding = padding,
+            modifier = Modifier.fillMaxSize().background(Dream.Sky),
+        ) {
+            item {
+                Text(
+                    stringResource(R.string.settings), fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                    color = Dream.MoonLight, modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
+            item {
+                SwitchButton(
+                    checked = deadlineOn,
+                    onCheckedChange = { viewModel.setHardDeadlineEnabled(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    secondaryLabel = {
+                        Text(formatMinutesOfDay(context, deadlineMin), color = Dream.Moon, maxLines = 1)
+                    },
+                ) { Text(stringResource(R.string.wake_by_label), maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            }
+            item {
+                SettingRow(
+                    label = stringResource(R.string.change_time),
+                    value = formatMinutesOfDay(context, deadlineMin),
+                    onClick = onEditDeadline,
+                )
+            }
+            if (AppLanguage.isSupported) {
+                item {
+                    SettingRow(
+                        label = stringResource(R.string.language),
+                        value = lang?.let { AppLanguage.nativeName(it) } ?: stringResource(R.string.lang_system),
+                        onClick = onLanguage,
+                    )
+                }
+            }
+            item {
+                Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.tagline), fontSize = 12.sp, color = Dream.Moon, textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.version, version), fontSize = 11.sp, color = Dream.Muted, textAlign = TextAlign.Center)
+                    Text(stringResource(R.string.by_line), fontSize = 11.sp, color = Dream.Muted, textAlign = TextAlign.Center)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingRow(label: String, value: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier
-            .size(36.dp)
-            .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape),
-        colors = ButtonDefaults.secondaryButtonColors(backgroundColor = Color.White.copy(alpha = 0.08f)),
-        shape = CircleShape
-    ) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.buttonColors(containerColor = Dream.Track, contentColor = Dream.MoonLight),
+        secondaryLabel = { Text(value, color = Dream.Moon, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+    ) { Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+}
+
+// Language
+
+@Composable
+private fun LanguageScreen(onDone: () -> Unit) {
+    val context = LocalContext.current
+    val current = AppLanguage.current(context)
+    val listState = rememberScalingLazyListState()
+    val options: List<String?> = listOf(null) + AppLanguage.supported
+
+    ScreenScaffold(scrollState = listState) { padding ->
+        ScalingLazyColumn(state = listState, contentPadding = padding, modifier = Modifier.fillMaxSize().background(Dream.Sky)) {
+            item {
+                Text(stringResource(R.string.language), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Dream.MoonLight)
+            }
+            options.forEach { tag ->
+                item {
+                    val selected = tag == current
+                    Button(
+                        onClick = {
+                            onDone()
+                            AppLanguage.set(context, tag)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selected) Dream.MoonDeep else Dream.Track,
+                            contentColor = Dream.MoonLight,
+                        ),
+                    ) {
+                        Text(tag?.let { AppLanguage.nativeName(it) } ?: stringResource(R.string.lang_system), maxLines = 1)
+                    }
+                }
+            }
         }
     }
 }

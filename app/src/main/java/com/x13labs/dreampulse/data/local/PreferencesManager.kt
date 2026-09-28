@@ -19,9 +19,9 @@ class PreferencesManager @Inject constructor(
 ) {
     private val SLEEP_DURATION_KEY = intPreferencesKey("sleep_duration_hours")
     private val SLEEP_START_TIME_KEY = longPreferencesKey("sleep_start_time")
-    private val USER_NAME_KEY = androidx.datastore.preferences.core.stringPreferencesKey("user_name")
+
     private val IS_TRACKING_ACTIVE_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("is_tracking_active")
-    private val LAST_SLEEP_SUMMARY_KEY = androidx.datastore.preferences.core.stringPreferencesKey("last_sleep_summary")
+
     private val IS_SLEEP_CONFIRMED_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("is_sleep_confirmed")
     private val SERVICE_START_TIME_KEY = longPreferencesKey("service_start_time")
     private val TARGET_WAKE_TIME_KEY = longPreferencesKey("target_wake_time")
@@ -34,17 +34,11 @@ class PreferencesManager @Inject constructor(
         preferences[SLEEP_START_TIME_KEY] ?: 0L
     }
 
-    val userName: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[USER_NAME_KEY] ?: ""
-    }
 
     val isTrackingActive: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[IS_TRACKING_ACTIVE_KEY] ?: false
     }
 
-    val lastSleepSummary: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[LAST_SLEEP_SUMMARY_KEY] ?: "No data"
-    }
 
     val isSleepConfirmed: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[IS_SLEEP_CONFIRMED_KEY] ?: false
@@ -70,11 +64,6 @@ class PreferencesManager @Inject constructor(
         }
     }
 
-    suspend fun saveUserName(name: String) {
-        context.dataStore.edit { preferences ->
-            preferences[USER_NAME_KEY] = name
-        }
-    }
 
     suspend fun setTrackingActive(active: Boolean) {
         context.dataStore.edit { preferences ->
@@ -82,17 +71,7 @@ class PreferencesManager @Inject constructor(
         }
     }
 
-    suspend fun saveLastSleepSummary(summary: String) {
-        context.dataStore.edit { preferences ->
-            preferences[LAST_SLEEP_SUMMARY_KEY] = summary
-        }
-    }
 
-    suspend fun saveSleepSummary(summary: String) {
-        context.dataStore.edit { preferences ->
-            preferences[LAST_SLEEP_SUMMARY_KEY] = summary
-        }
-    }
 
     suspend fun saveSleepConfirmed(confirmed: Boolean) {
         context.dataStore.edit { preferences ->
@@ -110,6 +89,37 @@ class PreferencesManager @Inject constructor(
         context.dataStore.edit { preferences ->
             preferences[TARGET_WAKE_TIME_KEY] = timestamp
         }
+    }
+
+    // Last finished session, for the morning summary (sleepStartTime is kept separately)
+    private val LAST_SESSION_START_KEY = longPreferencesKey("last_session_start")
+    private val LAST_SCHEDULED_WAKE_KEY = longPreferencesKey("last_scheduled_wake")
+    private val LAST_WAKE_KEY = longPreferencesKey("last_wake")
+
+    val lastSessionStart: Flow<Long> = context.dataStore.data.map { it[LAST_SESSION_START_KEY] ?: 0L }
+    val lastScheduledWake: Flow<Long> = context.dataStore.data.map { it[LAST_SCHEDULED_WAKE_KEY] ?: 0L }
+    val lastWake: Flow<Long> = context.dataStore.data.map { it[LAST_WAKE_KEY] ?: 0L }
+
+    suspend fun saveLastSession(sessionStart: Long, scheduledWake: Long, wake: Long) {
+        context.dataStore.edit {
+            it[LAST_SESSION_START_KEY] = sessionStart
+            it[LAST_SCHEDULED_WAKE_KEY] = scheduledWake
+            it[LAST_WAKE_KEY] = wake
+        }
+    }
+
+    private val SLEEP_SOURCE_KEY = androidx.datastore.preferences.core.stringPreferencesKey("sleep_source")
+    private val BATTERY_START_KEY = intPreferencesKey("battery_start")
+
+    val sleepSource: Flow<String> = context.dataStore.data.map { it[SLEEP_SOURCE_KEY] ?: "" }
+    val batteryStart: Flow<Int> = context.dataStore.data.map { it[BATTERY_START_KEY] ?: 0 }
+
+    suspend fun saveSleepSource(source: String) {
+        context.dataStore.edit { it[SLEEP_SOURCE_KEY] = source }
+    }
+
+    suspend fun saveBatteryStart(level: Int) {
+        context.dataStore.edit { it[BATTERY_START_KEY] = level }
     }
 
     // Hard Deadline ("Must wake by" feature)

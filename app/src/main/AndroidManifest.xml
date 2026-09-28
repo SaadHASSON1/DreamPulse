@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.BODY_SENSORS" />
     <uses-permission android:name="android.permission.BODY_SENSORS_BACKGROUND" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
-    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
 
     <!-- Background and Alarm Permissions -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -18,7 +17,6 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <uses-feature android:name="android.hardware.type.watch" />
     <uses-feature android:name="android.hardware.sensor.heartrate" android:required="true" />
@@ -31,6 +29,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="DreamPulse"
         android:supportsRtl="true"
+        android:localeConfig="@xml/locales_config"
         android:theme="@android:style/Theme.DeviceDefault">
 
         <!-- Wear OS standalone meta-data -->
@@ -78,17 +77,37 @@
 
         <service
             android:name=".data.sensors.SleepPassiveListenerService"
-            android:permission="com.google.android.gms.permission.BIND_HEALTH_SERVICES"
+            android:permission="com.google.android.wearable.healthservices.permission.PASSIVE_DATA_BINDING"
             android:exported="true" />
 
         <receiver
             android:name=".receiver.AlarmReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="com.x13labs.dreampulse.ACTION_ALARM" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name=".tile.SleepTileService"
+            android:exported="true"
+            android:label="@string/tile_label"
+            android:description="@string/tile_description"
+            android:icon="@drawable/ic_moon"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_preview" />
+        </service>
+
+        <receiver
+            android:name=".receiver.HeartbeatReceiver"
+            android:enabled="true"
+            android:exported="false" />
 
         <receiver
             android:name=".receiver.BootReceiver"

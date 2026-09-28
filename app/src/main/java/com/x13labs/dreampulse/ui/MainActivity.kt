@@ -3,10 +3,6 @@ package com.x13labs.dreampulse.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.hardware.Sensor
-import android.hardware.SensorEvent
-import android.hardware.SensorEventListener
-import android.hardware.SensorManager
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
@@ -20,22 +16,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import com.x13labs.dreampulse.ui.screens.MainScreen
-import com.x13labs.dreampulse.ui.theme.SmartSleepTheme
+import com.x13labs.dreampulse.ui.theme.DreamTheme
 import com.x13labs.dreampulse.ui.viewmodel.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlin.math.sqrt
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity(), SensorEventListener {
+class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
-    private var sensorManager: SensorManager? = null
-    private var accelerometer: Sensor? = null
-    private var offBodySensor: Sensor? = null
-    private var heartRateSensor: Sensor? = null
 
     private var pendingStartTracking = false
 
@@ -45,7 +35,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     ) { permissions ->
         Log.d("MainActivity", "Startup permissions result: $permissions")
         // طلب BODY_SENSORS_BACKGROUND بعد منح الأذونات الأساسية
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS_BACKGROUND)
                 != PackageManager.PERMISSION_GRANTED) {
                 requestPermissionLauncher.launch(arrayOf(Manifest.permission.BODY_SENSORS_BACKGROUND))
@@ -59,7 +49,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     ) { permissions ->
         Log.d("MainActivity", "Permissions result: $permissions")
         if (pendingStartTracking) {
-            handleStartTrackingRequest()
+            handleStartTrackingRequest(afterRequest = true)
         }
     }
 
@@ -67,19 +57,16 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         super.onCreate(savedInstanceState)
 
         Log.d("MainActivity", "onCreate called (Clean Start)")
-        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
-        accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        offBodySensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT)
-        heartRateSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_HEART_RATE)
 
         setContent {
-            SmartSleepTheme {
+            DreamTheme {
                 MainScreen(viewModel)
             }
         }
 
         // ← طلب الأذونات فور فتح التطبيق
         requestStartupPermissions()
+        showSamsungBatteryBriefingIfNeeded()
 
         lifecycleScope.launch {
             viewModel.needsPermissionCheck.collect {
@@ -111,7 +98,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         if (needed.isNotEmpty()) {
             Log.d("MainActivity", "Requesting startup permissions: $needed")
             startupPermissionLauncher.launch(needed.toTypedArray())
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // الأذونات الأساسية موجودة — اطلب الخلفية مباشرة
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS_BACKGROUND)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -120,7 +107,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
-    private fun handleStartTrackingRequest() {
+    private fun handleStartTrackingRequest(afterRequest: Boolean = false) {
         Log.d("MainActivity", "handleStartTrackingRequest() — checking permissions...")
 
         // فحص الأذونات الأساسية (يجب أن تكون ممنوحة من بداية التطبيق)
@@ -129,13 +116,26 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             missingPermissions.add(Manifest.permission.BODY_SENSORS)
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED)
             missingPermissions.add(Manifest.permission.ACTIVITY_RECOGNITION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS_BACKGROUND) != PackageManager.PERMISSION_GRANTED)
                 missingPermissions.add(Manifest.permission.BODY_SENSORS_BACKGROUND)
         }
 
         if (missingPermissions.isNotEmpty()) {
-            Log.w("MainActivity", "Still missing at launch: $missingPermissions — re-requesting")
+            if (afterRequest) {
+                // Already asked once and the user (or the system) refused: stop here instead of
+                // re-requesting in a loop, and send the user to the app's settings page.
+                Log.w("MainActivity", "Permissions still denied after request: $missingPermissions")
+                pendingStartTracking = false
+                Toast.makeText(this, getString(com.x13labs.dreampulse.R.string.perm_denied), Toast.LENGTH_LONG).show()
+                try {
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to open app settings", e)
+                }
+                return
+            }
+            Log.w("MainActivity", "Missing at launch: $missingPermissions — requesting")
             requestPermissionLauncher.launch(missingPermissions.toTypedArray())
             return
         }
@@ -146,64 +146,6 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         viewModel.executeStartTracking()
     }
 
-    override fun onResume() {
-        super.onResume()
-
-        lifecycleScope.launch {
-            viewModel.isTrackingState.collectLatest { active ->
-                if (active) {
-                    accelerometer?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI) }
-                    heartRateSensor?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_UI) }
-                    offBodySensor?.let { sensorManager?.registerListener(this@MainActivity, it, SensorManager.SENSOR_DELAY_NORMAL) }
-                } else {
-                    sensorManager?.unregisterListener(this@MainActivity)
-                }
-            }
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        sensorManager?.unregisterListener(this)
-    }
-
-    override fun onSensorChanged(event: SensorEvent?) {
-        val sensorType = event?.sensor?.type
-
-        if (sensorType == Sensor.TYPE_LOW_LATENCY_OFFBODY_DETECT) {
-            val isOnBody = event.values[0] == 1.0f
-            viewModel.updateOnBodyStatus(isOnBody)
-            return
-        }
-
-        if (viewModel.isTrackingState.value) return
-
-        when (sensorType) {
-            Sensor.TYPE_ACCELEROMETER -> {
-                val x = event!!.values[0]
-                val y = event.values[1]
-                val z = event.values[2]
-
-                val magnitude = sqrt(x * x + y * y + z * z) - 9.8f
-                val absMagnitude = if (magnitude < 0) -magnitude else magnitude
-
-                if (absMagnitude > 0.05f) {
-                    viewModel.updateMotion(absMagnitude)
-                } else {
-                    viewModel.updateMotion(0f)
-                }
-            }
-            Sensor.TYPE_HEART_RATE -> {
-                val bpm = event!!.values[0]
-                if (bpm > 0) {
-                    viewModel.updateHeartRate(bpm)
-                }
-            }
-        }
-    }
-
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-
     private fun showSamsungBatteryBriefingIfNeeded() {
         if (!Build.MANUFACTURER.equals("samsung", ignoreCase = true)) return
 
@@ -212,9 +154,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
         try {
             val builder = android.app.AlertDialog.Builder(this)
-            builder.setTitle("Samsung Watch Setup")
-            builder.setMessage("To ensure the alarm fires, please add DreamPulse to 'Never sleeping apps'.\n\nSettings → Battery and device care → Battery → Background usage limits → Never sleeping apps")
-            builder.setPositiveButton("Open Settings") { _, _ ->
+            builder.setTitle(getString(com.x13labs.dreampulse.R.string.samsung_title))
+            builder.setMessage(getString(com.x13labs.dreampulse.R.string.samsung_body))
+            builder.setPositiveButton(getString(com.x13labs.dreampulse.R.string.perm_open)) { _, _ ->
                 try {
                     val intent = Intent("android.settings.APPLICATION_DETAILS_SETTINGS")
                     intent.data = Uri.parse("package:$packageName")

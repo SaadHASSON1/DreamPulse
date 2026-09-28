@@ -15,7 +15,6 @@ import com.x13labs.dreampulse.domain.model.SleepState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.guava.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,7 +37,7 @@ class HealthServicesManager @Inject constructor(
     private val _isTracking = MutableStateFlow(false)
     val isTracking: StateFlow<Boolean> = _isTracking
 
-    private val _isOnBody = MutableStateFlow(false)
+    private val _isOnBody = MutableStateFlow(true)
     val isOnBody: StateFlow<Boolean> = _isOnBody
 
     private val _isSimulation = MutableStateFlow(false)
@@ -73,7 +72,7 @@ class HealthServicesManager @Inject constructor(
         _heartRate.value = 0f
         _sleepState.value = SleepState.UNKNOWN
         _isSimulation.value = false
-        _isOnBody.value = false
+        _isOnBody.value = true
     }
 
 
@@ -136,14 +135,6 @@ class HealthServicesManager @Inject constructor(
         // This method is called during confirmSleep() where tracking must remain true.
     }
 
-    fun unregisterAll() {
-        try {
-            passiveMonitoringClient?.clearPassiveListenerServiceAsync()
-        } catch (e: Exception) {}
-        try {
-            stopHeartRateMeasurement()
-        } catch (e: Exception) {}
-    }
 
     fun updateHeartRate(bpm: Float) {
         _heartRate.value = bpm
@@ -158,8 +149,4 @@ class HealthServicesManager @Inject constructor(
     }
 
 
-    suspend fun isTrackingSupported(): Boolean {
-        val capabilities = passiveMonitoringClient?.getCapabilitiesAsync()?.await()
-        return capabilities?.supportedDataTypesPassiveMonitoring?.contains(androidx.health.services.client.data.DataType.HEART_RATE_BPM) ?: false
-    }
 }

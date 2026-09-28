@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DreamPulse</title>
+<meta name="description" content="A Wear OS sleep alarm that starts counting when you actually fall asleep. Made by Saad Hasson.">
+<meta property="og:title" content="DreamPulse">
+<meta property="og:description" content="A sleep alarm that starts counting when you fall asleep.">
+<meta property="og:image" content="https://saadhasson1.github.io/DreamPulse/docs/screenshots/showcase-en.png">
+<link rel="icon" href="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono&family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B1026; --line: #1E2548; --panel: #10152e;
+    --text: #d9d8ee; --head: #EEEDFE; --muted: #8A8FB0; --accent: #AFA9EC; --sun: #FAC775; --ok: #5DCAA5;
+    --font: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  html[lang="ar"] { --font: "IBM Plex Sans Arabic", "IBM Plex Sans", system-ui, sans-serif; }
+  html[lang="en"] [data-l="ar"], html[lang="ar"] [data-l="en"] { display: none !important; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 17px; line-height: 1.7; overflow-x: hidden; }
+  a { color: var(--accent); }
+  .col { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
+  header { display: flex; justify-content: space-between; align-items: center; padding: 22px 0; }
+  .me { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 15px; text-decoration: none; }
+  .me img { width: 28px; height: 28px; border-radius: 50%; }
+  .me b { color: var(--head); font-weight: 600; }
+  .lang button { background: none; border: 0; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; padding: 4px 6px; }
+  .lang button[aria-pressed="true"] { color: var(--head); text-decoration: underline; text-underline-offset: 4px; }
+
+  h1 { font-size: clamp(30px, 5vw, 44px); line-height: 1.2; color: var(--head); margin: 40px 0 18px; font-weight: 600; }
+  h2 { font-size: 22px; color: var(--head); margin: 56px 0 12px; font-weight: 600; }
+  p { margin: 0 0 16px; }
+  .quiet { color: var(--muted); }
+  .links { display: flex; gap: 18px; flex-wrap: wrap; margin: 22px 0 0; font-size: 15px; }
+
+  .shot { margin: 40px -20px 0; }
+  .shot img { width: 100%; height: auto; display: block; }
+
+  ul.plain { padding-inline-start: 20px; margin: 0 0 16px; }
+  ul.plain li { margin-bottom: 8px; }
+  ul.plain b { color: var(--head); font-weight: 600; }
+
+  pre { font-family: var(--mono); font-size: 13.5px; line-height: 1.6; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; direction: ltr; text-align: left; color: var(--text); }
+  pre .c { color: var(--muted); }
+  pre .y { color: var(--sun); }
+  pre .g { color: var(--ok); }
+
+  .tabs { display: flex; gap: 14px; margin: 8px 0 18px; font-size: 15px; }
+  .tabs button { background: none; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 0; }
+  .tabs button[aria-selected="true"] { color: var(--head); text-decoration: underline; text-underline-offset: 4px; }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .gallery img { width: 100%; height: auto; display: block; }
+
+  footer { margin-top: 72px; border-top: 1px solid var(--line); padding: 22px 0 40px; font-size: 14px; color: var(--muted); }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="col">
+<header>
+  <a class="me" href="https://github.com/SaadHASSON1"><img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" alt=""><span><b>DreamPulse</b> · Saad Hasson</span></a>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" data-set-lang="en" aria-pressed="true">EN</button>
+    <button type="button" data-set-lang="ar" aria-pressed="false">عربي</button>
+  </div>
+</header>
+
+<main>
+  <h1>
+    <span data-l="en">A sleep alarm that waits until I'm actually asleep.</span>
+    <span data-l="ar">منبّه بيستنّى لحتى نام فعلاً.</span>
+  </h1>
+
+  <div data-l="en">
+    <p>I sleep after Fajr, and I never fall asleep the minute I lie down. Some nights it's 10 minutes, some nights 40. A normal alarm doesn't care: set it for 7 hours and those minutes come straight out of your sleep.</p>
+    <p>So I built DreamPulse for my Galaxy Watch. You pick how long you want to sleep, press Start, and go to bed. The watch watches your heart rate and movement, and the countdown only starts once you've actually fallen asleep.</p>
+  </div>
+  <div data-l="ar">
+    <p>أنا بنام بعد صلاة الفجر، وما بغفى أول ما حط راسي. في ليالي بتاخد 10 دقايق وفي ليالي 40. المنبّه العادي ما بيهمّو: بتحطّو 7 ساعات وهالدقايق بتنقص من نومك.</p>
+    <p>لهيك عملت DreamPulse لساعتي الـ Galaxy Watch. بتختار قديش بدك تنام، بتكبس ابدأ، وبتنام. الساعة بتراقب النبض والحركة، والعدّ ما بيبلّش إلا لما تغفى فعلاً.</p>
+  </div>
+
+  <div class="links">
+    <a href="https://github.com/SaadHASSON1/DreamPulse"><span data-l="en">Source on GitHub</span><span data-l="ar">الكود على GitHub</span></a>
+    <a href="privacy-policy.html"><span data-l="en">Privacy policy</span><span data-l="ar">سياسة الخصوصية</span></a>
+  </div>
+
+  <div class="shot">
+    <img data-l="en" src="docs/screenshots/showcase-en.png" alt="DreamPulse on a Galaxy Watch8">
+    <img data-l="ar" src="docs/screenshots/showcase-ar.png" alt="DreamPulse على ساعة Galaxy Watch8">
+  </div>
+
+  <h2><span data-l="en">What it does</span><span data-l="ar">شو بيعمل</span></h2>
+  <ul class="plain" data-l="en">
+    <li><b>Counts from when you fall asleep,</b> not from when you press Start.</li>
+    <li><b>Backup alarm</b> set the second you start (goal + 1 hour), in case sleep is never detected or the watch restarts. I didn't want to trust it before it trusted itself.</li>
+    <li><b>Wake-by time</b> if you have somewhere to be: "never later than 7:00".</li>
+    <li><b>Smart Wake:</b> in the last 15 minutes, if you turn over in light sleep it wakes you then. One twitch isn't enough, it needs two separate movements.</li>
+    <li><b>Sunrise screen</b> when it rings. Hold anywhere or shake your wrist to stop it.</li>
+    <li><b>Morning summary</b> and the last 7 nights, including how much battery the night took.</li>
+    <li>A Tile, a moon on the watch face while it's running, and English, Arabic and Turkish.</li>
+  </ul>
+  <ul class="plain" data-l="ar">
+    <li><b>بيعدّ من لحظة ما تغفى،</b> مش من لحظة ما تكبس ابدأ.</li>
+    <li><b>منبّه احتياطي</b> بينضبط من أول ثانية (المدة + ساعة)، إذا ما انكشف النوم أو انطفت الساعة، بتصحى برضو.</li>
+    <li><b>موعد استيقاظ إجباري</b> إذا عندك مشوار: "مش بعد الساعة 7".</li>
+    <li><b>استيقاظ ذكي:</b> بآخر ربع ساعة، إذا تقلّبت بنوم خفيف بيصحّيك وقتها. رعشة وحدة ما بتكفي، لازم حركتين منفصلين.</li>
+    <li><b>شاشة شروق</b> لما يرن. كبسة مطوّلة أو هزّة إيد بتوقّفه.</li>
+    <li><b>ملخّص الصبح</b> وآخر 7 ليالي، مع قديش أكلت الليلة من البطارية.</li>
+    <li>Tile، وقمر على وجه الساعة وهو شغّال، وعربي وتركي وإنجليزي.</li>
+  </ul>
+
+  <h2><span data-l="en">How it decides you're asleep</span><span data-l="ar">كيف بيعرف إنك نمت</span></h2>
+  <p data-l="en">The first version got my first real night wrong. It said I fell asleep at 5:08, Samsung Health said 4:54, and after I woke up at 11:25 it happily decided I was asleep again. So I rewrote the detection around what that night's log actually showed:</p>
+  <p data-l="ar">أول نسخة غلطت بأول ليلة حقيقية. قالت نمت الساعة 5:08، وSamsung Health قال 4:54، وبعد ما فقت الساعة 11:25 قرّرت إني نايم مرة تانية. فرجعت كتبت طريقة الكشف على أساس شو طلع فعلياً بلوغ هديك الليلة:</p>
+<pre><span class="c"># awake baseline = median heart rate of the first 3 minutes</span>
+asleep if  still 10 min  and  HR &lt;= baseline - 15%
+       or  still 15 min  and  HR &lt;= baseline - 5%
+       or  watch says "asleep"  and  still 5 min
+       or  still 25 min  <span class="c">(no heart rate available)</span>
+<span class="c"># watch off the wrist -&gt; nothing counts</span>
+
+onset = halfway between last movement and first low HR reading
+
+<span class="c"># replaying that night:</span>
+Samsung Health  <span class="y">04:54</span>
+DreamPulse      <span class="g">04:54</span></pre>
+  <p class="quiet" data-l="en">The whole detector is one small Kotlin class with unit tests, including a test built from that night. It's in <a href="https://github.com/SaadHASSON1/DreamPulse/blob/main/app/src/main/java/com/x13labs/dreampulse/domain/SleepDetector.kt">SleepDetector.kt</a>.</p>
+  <p class="quiet" data-l="ar">كل الكشف بكلاس Kotlin صغير عليه اختبارات، منها اختبار مبني على هديك الليلة. موجود بـ <a href="https://github.com/SaadHASSON1/DreamPulse/blob/main/app/src/main/java/com/x13labs/dreampulse/domain/SleepDetector.kt">SleepDetector.kt</a>.</p>
+
+  <h2><span data-l="en">Screens</span><span data-l="ar">الشاشات</span></h2>
+  <p class="quiet"><span data-l="en">Taken on my Galaxy Watch8. The history page is my real nights.</span><span data-l="ar">مصوّرة من ساعتي Galaxy Watch8. صفحة السجل هي لياليّ الحقيقية.</span></p>
+  <div class="tabs" role="tablist" aria-label="Screenshot language">
+    <button type="button" role="tab" data-gallery="en" aria-selected="true">English</button>
+    <button type="button" role="tab" data-gallery="ar" aria-selected="false">العربية</button>
+    <button type="button" role="tab" data-gallery="tr" aria-selected="false">Türkçe</button>
+  </div>
+  <div class="gallery" id="gallery"></div>
+
+  <h2><span data-l="en">Privacy</span><span data-l="ar">الخصوصية</span></h2>
+  <p data-l="en">The app doesn't have internet permission at all, so it couldn't send your data anywhere even if it wanted to. No account, no ads, no analytics. Uninstall it and everything's gone. <a href="privacy-policy.html">Full policy</a>.</p>
+  <p data-l="ar">التطبيق ما عندو إذن إنترنت أصلاً، يعني ما بيقدر يبعت بياناتك لأي مكان حتى لو بدو. لا حساب، لا إعلانات، لا تتبّع. بتمسحو، بيروح كلشي معو. <a href="privacy-policy.html">السياسة كاملة</a>.</p>
+</main>
+
+<footer>
+  © 2026 Saad Hasson · X13LABS · <a href="mailto:contact@x13labs.com">contact@x13labs.com</a>
+</footer>
+</div>
+
+<script>
+  var SCREENS = ["01-setup", "02-duration", "05-waiting", "06-alarm", "07-sunrise", "08-summary", "03-history", "04-settings"];
+
+  function renderGallery(lang) {
+    var g = document.getElementById("gallery");
+    g.innerHTML = "";
+    SCREENS.forEach(function (s) {
+      var img = document.createElement("img");
+      img.src = "docs/screenshots/" + lang + "/" + s + ".png";
+      img.alt = s.slice(3);
+      img.loading = "lazy";
+      img.width = 360; img.height = 360;
+      g.appendChild(img);
+    });
+    document.querySelectorAll("[data-gallery]").forEach(function (b) {
+      b.setAttribute("aria-selected", String(b.dataset.gallery === lang));
+    });
+  }
+
+  function setLang(lang) {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.setLang === lang));
+    });
+    try { localStorage.setItem("dp-lang", lang); } catch (e) {}
+    renderGallery(lang);
+  }
+
+  document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.dataset.setLang); });
+  });
+  document.querySelectorAll("[data-gallery]").forEach(function (b) {
+    b.addEventListener("click", function () { renderGallery(b.dataset.gallery); });
+  });
+
+  var saved = null;
+  try { saved = localStorage.getItem("dp-lang"); } catch (e) {}
+  setLang(saved || ((navigator.language || "").slice(0, 2) === "ar" ? "ar" : "en"));
+</script>
+</body>
+</html>

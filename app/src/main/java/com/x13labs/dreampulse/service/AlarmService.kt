@@ -20,8 +20,26 @@ import androidx.wear.ongoing.Status
 import com.x13labs.dreampulse.ui.AlarmActivity
 import com.x13labs.dreampulse.util.NotificationHelper
 import com.x13labs.dreampulse.R
+import com.x13labs.dreampulse.data.local.PreferencesManager
+import com.x13labs.dreampulse.data.repository.SleepRepository
+import com.x13labs.dreampulse.receiver.HeartbeatReceiver
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class AlarmService : Service() {
+
+    @Inject lateinit var preferencesManager: PreferencesManager
+    @Inject lateinit var sleepRepository: SleepRepository
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var sessionEnded = false
 
     private var vibrator: Vibrator? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -40,7 +58,7 @@ class AlarmService : Service() {
         // 2. تأكد من وجود قناة الإشعار
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = android.app.NotificationChannel(
-                NotificationHelper.ALARM_CHANNEL_ID, "Sleep Alarms",
+                NotificationHelper.ALARM_CHANNEL_ID, getString(R.string.channel_alarms),
                 android.app.NotificationManager.IMPORTANCE_HIGH
             ).apply {
                 setSound(null, null)
@@ -66,13 +84,26 @@ class AlarmService : Service() {
         )
 
         // 4. ابنِ الإشعار — لون أحمر زاهي للـ chip
+        val stopPendingIntent = PendingIntent.getActivity(
+            this, 2002,
+            Intent(this, AlarmActivity::class.java).apply {
+                putExtra(AlarmActivity.EXTRA_ACTION, AlarmActivity.ACTION_DISMISS)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val alarmColor = android.graphics.Color.parseColor("#FF5252") // أحمر فاقع
         val notificationBuilder = NotificationCompat.Builder(this, NotificationHelper.ALARM_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_alarm_chip)
             .setColor(alarmColor)                          // لون الـ chip على watch face
             .setColorized(true)                            // يطبّق اللون على الخلفية
-            .setContentTitle("🔔 DreamPulse — WAKE UP!")
-            .setContentText("اضغط لفتح شاشة المنبه")
+            .setContentTitle(getString(R.string.notif_wake_up))
+            .setContentText(getString(R.string.notif_tap_to_open))
+            // Primary action: on watches with a double-pinch gesture this is what it triggers
+            .addAction(
+                NotificationCompat.Action.Builder(R.drawable.ic_alarm_chip, getString(R.string.stop), stopPendingIntent).build()
+            )
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
@@ -83,7 +114,7 @@ class AlarmService : Service() {
 
         // 5. Ongoing Activity chip — أوضح وأكبر
         val alarmStatusText = Status.forPart(
-            Status.TextPart("🔔 استيقظ! اضغط هنا")
+            Status.TextPart(getString(R.string.notif_wake_up))
         )
 
         val ongoingActivity = OngoingActivity.Builder(
@@ -124,6 +155,11 @@ class AlarmService : Service() {
             Log.e("AlarmService", "startActivity failed: ${e.message}", e)
         }
 
+        // 7b. The alarm is ringing: the session is over. End it now instead of waiting for the
+        // user to dismiss, otherwise a heartbeat or reboot would find an "active" session whose
+        // wake time has passed and re-arm the alarm (phantom alarms every 15 min).
+        endSession()
+
         // 8. Auto-stop بعد 10 دقائق
         Handler(Looper.getMainLooper()).postDelayed({
             stopSelf()
@@ -163,7 +199,45 @@ class AlarmService : Service() {
             Log.e("AlarmService", "Vibration error", e)
         }
 
-        return START_STICKY
+        // Never restart on our own: a system restart would ring the alarm again from scratch.
+        return START_NOT_STICKY
+    }
+
+    private fun endSession() {
+        if (sessionEnded) return
+        sessionEnded = true
+        HeartbeatReceiver.cancel(this)
+        stopService(Intent(this, SleepMonitorService::class.java))
+        sleepRepository.setTracking(false)
+        serviceScope.launch {
+            // Keep what the morning summary needs before the session fields are cleared
+            // (sleepStartTime itself is kept until the next session starts).
+            val sessionStart = preferencesManager.serviceStartTime.first()
+            val scheduledWake = preferencesManager.targetWakeTime.first()
+            val wake = System.currentTimeMillis()
+            preferencesManager.saveLastSession(sessionStart = sessionStart, scheduledWake = scheduledWake, wake = wake)
+            if (sessionStart > 0) {
+                val confirmed = preferencesManager.isSleepConfirmed.first()
+                com.x13labs.dreampulse.data.local.NightHistory.append(
+                    this@AlarmService,
+                    com.x13labs.dreampulse.data.local.NightHistory.Night(
+                        sessionStart = sessionStart,
+                        sleepOnset = if (confirmed) preferencesManager.sleepStartTime.first() else 0L,
+                        source = if (confirmed) preferencesManager.sleepSource.first() else "backup alarm",
+                        wake = wake,
+                        scheduledWake = scheduledWake,
+                        goalMinutes = preferencesManager.sleepDuration.first(),
+                        batteryStart = preferencesManager.batteryStart.first(),
+                        batteryEnd = com.x13labs.dreampulse.data.local.NightHistory.batteryLevel(this@AlarmService),
+                    )
+                )
+            }
+            preferencesManager.setTrackingActive(false)
+            preferencesManager.saveSleepConfirmed(false)
+            preferencesManager.saveServiceStartTime(0L)
+            preferencesManager.saveTargetWakeTime(0L)
+            com.x13labs.dreampulse.tile.SleepTileService.requestUpdate(this@AlarmService)
+        }
     }
 
     override fun onDestroy() {
@@ -175,6 +249,7 @@ class AlarmService : Service() {
             mediaPlayer?.stop()
             mediaPlayer?.release()
         } catch (e: Exception) { }
+        serviceScope.cancel()
         super.onDestroy()
     }
 

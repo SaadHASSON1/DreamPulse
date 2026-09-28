@@ -1,118 +1,115 @@
-# 🌕 DreamPulse - The Cosmic Sleep Experience for Wear OS
+<p align="center">
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="112" alt="DreamPulse">
+</p>
+
+<h1 align="center">DreamPulse</h1>
 
 <p align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="120" alt="DreamPulse Logo">
+  <b>The alarm that starts counting when you fall asleep, not when you go to bed.</b><br>
+  A smart sleep alarm for Wear OS · by X13LABS<br>
+  <a href="https://saadhasson1.github.io/DreamPulse/"><b>Website</b></a> · <a href="https://saadhasson1.github.io/DreamPulse/privacy-policy.html">Privacy policy</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Platform-Wear%20OS-00C1DE?style=for-the-badge&logo=android" alt="Wear OS Badge">
-  <img src="https://img.shields.io/badge/Innovation-Dynamic%20Countdown-FFD54F?style=for-the-badge" alt="Innovation Badge">
-  <img src="https://img.shields.io/badge/X13LABS-Premium-white?style=for-the-badge" alt="Brand Badge">
+  <a href="https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml"><img src="https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Wear%20OS-3%2B-4285F4?logo=wearos&logoColor=white" alt="Wear OS 3+">
+  <img src="https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin">
+  <img src="https://img.shields.io/badge/Compose-Material%203%20for%20Wear-3DDC84" alt="Compose Material 3">
+  <img src="https://img.shields.io/badge/languages-EN%20%C2%B7%20AR%20%C2%B7%20TR-534AB7" alt="Languages">
+  <img src="https://img.shields.io/badge/network-none-5DCAA5" alt="No network access">
 </p>
+
+<p align="center">
+  <img src="docs/screenshots/showcase-en.png" width="100%" alt="DreamPulse on a Galaxy Watch8: setup, duration wheels, waiting for sleep, sunrise alarm, history">
+</p>
+
+---
+
+## Why
+
+I sleep after Fajr and I never fall asleep the minute I lie down. Some nights it's 10 minutes, some nights 40, and a normal alarm takes all of that out of my sleep.
+
+So I made DreamPulse for my Galaxy Watch. It watches heart rate and movement and only starts the countdown once I'm actually asleep. Ask for 7 hours, get 7 hours.
+
+## Features
+
+| | |
+|---|---|
+| **Sleep-onset countdown** | The alarm is set from the moment you fall asleep, not from when you press Start. |
+| **Backup alarm from the first second** | Scheduled as soon as you start (goal + 1 h), so you wake up even if sleep is never detected or the watch restarts. |
+| **Wake-by time** | Optional hard limit, e.g. "never later than 07:00", whatever time you fell asleep. |
+| **Smart Wake** | In the last 15 minutes, a real turn-over (two separate movements) rings the alarm early, while you are in light sleep. A single twitch does not. |
+| **Sunrise alarm** | The screen warms from night to dawn; hold anywhere or shake your wrist to stop. |
+| **Morning summary and history** | Time slept, time it took to fall asleep (not counted against your goal), minutes woken early, battery used. Last 7 nights. |
+| **Made for the watch** | Wheel pickers, swipe navigation, a Tile, an Ongoing Activity chip on the watch face, haptics, Material 3 for Wear. |
+| **Three languages** | English, Arabic (full right-to-left layout) and Turkish, with an in-app language picker. |
+
+## How sleep is detected
+
+All logic lives in [`SleepDetector`](app/src/main/java/com/x13labs/dreampulse/domain/SleepDetector.kt), a pure Kotlin class covered by unit tests, including tests built from a real recorded night.
+
+1. **Awake baseline:** the first heart-rate reading after you press Start.
+2. **Asleep when:**
+   - 10 minutes still and the heart rate is at least 15% below the baseline, or
+   - 15 minutes still and at least 5% below it, or
+   - the watch's own sleep signal (Health Services), confirmed by 5 minutes of stillness, or
+   - 25 minutes of complete stillness, when no heart rate is available.
+3. **Only while worn:** with the watch off the wrist, detection pauses and restarts when you put it back on.
+4. **Onset time:** halfway between your last movement and the first low heart-rate reading. Replaying the first recorded test night, this gives 04:54, the same minute Samsung Health reported.
+
+## Privacy
+
+DreamPulse has **no internet permission**. Heart rate, motion and sleep history never leave the watch. See the [privacy policy](https://saadhasson1.github.io/DreamPulse/privacy-policy.html).
+
+## Build
+
+Requirements: JDK 17+ and the Android SDK (compileSdk 37). The Gradle wrapper is included.
+
+```bash
+./gradlew testDebugUnitTest     # unit tests
+./gradlew assembleDebug         # debug build
+./gradlew assembleProfiling     # release configuration, signed with the debug key (for performance testing)
+./gradlew bundleRelease         # Play Store bundle (needs your upload key)
+```
+
+Install on a watch over Wi-Fi: enable **Developer options → Wireless debugging**, pair with `adb pair <ip:port>`, then `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+
+## Project layout
+
+```
+app/src/main/java/com/x13labs/dreampulse/
+├── domain/        SleepDetector, SmartWakeGate (pure, unit-tested)
+├── service/       SleepMonitorService (sensors, detection), AlarmService (ringing)
+├── receiver/      AlarmReceiver, HeartbeatReceiver (keeps the session alive), BootReceiver
+├── data/          DataStore preferences, night history, Health Services
+├── tile/          Tile shown next to the watch face
+└── ui/            Compose screens: setup, tracking, alarm, summary, history, settings
+```
+
+## Compatibility
+
+Wear OS 3 and later (Android 11+), tested on a Galaxy Watch8 (Wear OS 6). Needs a heart-rate sensor.
 
 ---
 
 <div dir="rtl">
 
-## 🇸🇦 حل العقدة العالمية: لماذا DreamPulse مختلف؟
+## بالعربي
 
-هل سألت نفسك يوماً لماذا تستيقظ متعباً رغم أنك ضبطت المنبه لـ 8 ساعات؟  
-**المشكلة:** المنبهات التقليدية تبدأ بالعد التنازلي فور ضبطها، متجاهلة الوقت الذي تستغرقه لتغفو (والذي قد يصل لساعة!). النتيجة؟ نوم ناقص وشعور بالإرهاق.
+**DreamPulse** منبّه ذكي لساعات Wear OS. ما بيبلّش يعدّ لحظة ما تضبطه، بيستنى **لحتى تغفى فعلاً** (من نبض القلب والحركة)، وبعدها بيعدّ المدة يلي طلبتها. طلبت 7 ساعات؟ بتنام 7 ساعات حقيقية.
 
-**الحل الثوري من DreamPulse:**  
-لقد قمنا بحل هذه المشكلة العالمية بذكاء. بفضل الحساسات البيومترية المتقدمة، **لا يبدأ المنبه بالعد التنازلي إلا عندما تغط في النوم فعلياً**. إذا طلبت 8 ساعات نوم، ستحصل على 8 ساعات نوم حقيقية، بغض النظر عن الوقت الذي استغرقته لتغفو.
+- **منبّه احتياطي** من أول لحظة، فبتصحى حتى لو ما انكشف النوم أو انطفت الساعة.
+- **موعد استيقاظ إجباري** اختياري، متل "مش بعد الساعة 7".
+- **استيقاظ ذكي** بآخر ربع ساعة إذا تقلّبت بنوم خفيف.
+- **منبّه شروق** بيتوقّف بالضغط المطوّل أو بهزّة إيد.
+- **ملخّص الصبح وسجل آخر 7 ليالي.**
+- **عربي كامل** من اليمين لليسار، وتركي وإنجليزي.
+- **بدون إنترنت:** كل البيانات بتضل على ساعتك.
 
-### ✨ ميزات استثنائية:
-- **🧠 البداية الذكية (True Sleep Detection)**: خوارزمية متطورة مستوحاة من Samsung Health تدمج بيانات نبض القلب والحركة (Sensor Fusion) لضمان اكتشاف دقيق جداً للحظة النوم.
-- **🛡️ نظام الأمان (Safe Mode)**: جدولة فورية لمنبه احتياطي لضمان الاستيقاظ حتماً حتى في حال تعطل الحساسات أو تأخر النظام في اكتشاف النوم.
-- **⏱️ تحديد مرن لساعات النوم**: واجهة سهلة لضبط هدف النوم بدقة الدقيقة الواحدة، مع أزرار سريعة للضبط (+/- 30 دقيقة).
-- **🤝 التناظر البصري (Cosmic Symmetry)**: واجهة مستخدم مذهلة تعتمد على التناظر التام بين شاشتي المنبه والملخص.
-- **🛡️ منع الإغلاق الخاطئ (Hold to Dismiss)**: يتطلب ضغطاً مطولاً لضمان استيقاظك الفعلي.
-- **📳 ميزة الهز (Shake to Stop)**: أوقف المنبه بهزة طبيعية من معصمك.
-- **🌌 التصميم الكوني**: واجهات تنبض بالحياة مع أيقونات واقعية للشمس والقمر.
-
-### 🚀 رحلة التطور:
-
-#### 🕰️ النسخة الأولية (V1.0 - The Legacy)
-بدأت DreamPulse كفكرة بسيطة (MVP) لحل مشكلة "وقت الغفاء". كانت الواجهة تعتمد على مكونات Wear OS القياسية، مع تركيز كلي على الوظيفة البرمجية فقط دون جماليات بصرية متقدمة.
-
-#### 🚀 النسخة الاحترافية (V2.0 - The Revolution)
-هذه النسخة هي إعادة ابتكار شاملة للتطبيق، حيث قمنا بـ:
-- **إعادة تصميم الواجهة**: الانتقال إلى نمط **Space Neumorphism** الفاخر مع خلفيات كونية متحركة.
-- **الأنيميشن السينمائي**: إضافة "صاروخ الاستيقاظ" المتحرك وشمس الصباح النابضة لإعطاء تجربة مستخدم حية.
-- **الموثوقية المطلقة**: ابتكار نظام **Fail-Safe Alarm** الذي يضمن الاستيقاظ حتى في أصعب الظروف التقنية.
-- **الإيماءات الذكية**: إضافة ميزة **Shake to Dismiss** للتفاعل الطبيعي مع الساعة.
-
-#### 💎 نسخة الكمال والاستقرار (V3.0 - The Perfection) - النسخة الحالية
-في هذا التحديث الرائد، تم الوصول بالتطبيق إلى أقصى درجات الاستقرار والذكاء:
-- **⏰ موعد الاستيقاظ الإجباري (Hard Deadline)**: ميزة جديدة لحل مشكلة "النوم المتأخر". يمكنك الآن إخبار التطبيق بضرورة إيقاظك قبل ساعة معينة (مثلاً 7:00 صباحاً) مهما حدث، حتى لو لم تكتمل ساعات نومك المحددة.
-- **📳 Shake to Start My Day**: توسيع ميزة الهز لتشمل الشاشة الصباحية (الملخص) مع نظام "فترة تبريد" (Debounce) لمنع التداخلات وتوفير سلاسة فائقة.
-- **⚡ أداء فائق (Zero-Latency)**: إعادة هيكلة شاملة لأنيميشن النجوم والنبضات لحل مشكلة التقطيع (Stutter) في الثواني الأولى للإقلاع وجعل واجهة المستخدم تعمل بسلاسة تامة.
-- **🛡️ استقرار حديدي (Bulletproof Logic)**: حل مشاكل "تعليق الذاكرة" (Stale State) ومعالجة تعارضات دورة حياة التطبيق مع `HeartbeatWorker`، لضمان عمل المنبه بنسبة نجاح 100% مهما حاول نظام الساعة قتله في الخلفية.
+<p align="center"><img src="docs/screenshots/showcase-ar.png" width="100%" alt="شاشات DreamPulse بالعربي"></p>
 
 </div>
 
 ---
 
-## 🇺🇸 Solving a Global Pain Point: Why DreamPulse?
-
-Ever wondered why you wake up tired even after setting an 8-hour alarm?  
-**The Problem:** Traditional alarms start counting the moment you set them, ignoring the time it takes you to actually fall asleep (Sleep Latency). You end up with 7 hours of rest instead of 8.
-
-**The DreamPulse Revolution:**  
-We solved this worldwide frustration. Using advanced biometric sensors, **the alarm countdown ONLY starts when you are actually asleep**. If you set an 8-hour goal, you get exactly 8 hours of real physiological rest. 
-
-### ✨ Core Features:
-- **🧠 True Sleep Detection (Samsung Style)**: Advanced sensor fusion (Heart Rate + Motion) inspired by Samsung Health algorithms for pinpoint accuracy.
-- **🛡️ Safe Mode Fallback**: Immediate scheduling of a backup alarm to guarantee you wake up even if sensors are delayed.
-- **⏱️ Precise Sleep Goals**: Easily adjust your sleep duration with 1-minute precision.
-- **🤝 Symmetrical Design**: A masterfully crafted UI where every element is balanced for a premium feel.
-- **🛡️ Secure Dismissal**: "Hold to Dismiss" mechanism to prevent accidental deactivation.
-- **📳 Shake to Stop**: Stop the alarm with a natural wrist motion.
-- **🌌 Cosmic Aesthetics**: Realistic celestial bodies and starry dynamic backgrounds.
-
-### 🚀 The Road of Revolution: A Cosmic Leap
-
-#### 🕰️ V1.0 (The Legacy)
-DreamPulse started as a Minimum Viable Product (MVP) focusing purely on solving the "sleep latency" problem. The UI was functional but basic, using standard Wear OS components with minimal visual flair.
-
-#### 🚀 V2.0 (The Revolution)
-This version marks a complete rebirth of the application:
-- **Visual Overhaul**: Transitioned to a premium **Space Neumorphism** design language with dynamic starry backgrounds.
-- **Cinematic Animations**: Introduced the animated "Blast-off Rocket" and "Pulsing Sun" for a living UI experience.
-- **Ultra-Reliability**: Developed the **Fail-Safe Alarm** system, ensuring the user wakes up even in edge-case sensor scenarios.
-- **Natural Interaction**: Implemented **Shake to Dismiss**, allowing for a more intuitive physical interaction.
-
-#### 💎 V3.0 (The Perfection) - CURRENT
-This groundbreaking update pushes the application to the absolute limits of stability, performance, and intelligence:
-- **⏰ Hard Deadline Target**: Solves the "falling asleep late" issue. You can now define a mandatory wake-up time (e.g., 07:00 AM) that acts as an absolute ceiling, ensuring you're never late even if you haven't completed your full sleep goal.
-- **📳 Shake to Start My Day**: Expanded the shake gesture to the morning summary screen, complete with a precision "Debounce" cooldown system to prevent accidental spillover triggers.
-- **⚡ Zero-Latency Performance**: Completely refactored the StarryBackground and UI animations, eliminating boot-time stutters and ensuring a buttery-smooth 60fps experience right from launch.
-- **🛡️ Bulletproof Logic**: Architected impenetrable session lifecycles by fixing stale state recovery bugs and resolving Android background-kill conflicts with the `HeartbeatWorker`. The alarm is now guaranteed to trigger flawlessly.
-
----
-
-## 🛠️ Tech Stack & Architecture
-
-- **Language**: 100% Kotlin
-- **UI Framework**: Jetpack Compose for Wear OS
-- **API**: Wear OS Health Services (Biometrics)
-- **Architecture**: MVVM with StateFlow & Foreground Services
-
----
-
-## 👨‍💻 Credits & Vision
-
-Developed with precision by **Saad HASSON**, founder of **X13LABS**.  
-DreamPulse is not just an app; it's a solution to a global sleep problem.
-
-> *"We don't count the time you spend in bed; we count the time you spend in sleep."*
-
----
-
-### 📄 License
-Licensed under the **MIT License**.
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Innovation%20by-X13LABS-blue?style=flat-square" alt="X13LABS Innovation">
-</p>
+<p align="center">© 2026 Saad HASSON · X13LABS. All rights reserved.</p>
