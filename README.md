@@ -10,7 +10,7 @@
 **المنبّه الذي يبدأ العدّ حين تغفو، لا حين تستلقي.**<br>
 منبّه نوم ذكي لساعات Wear OS: ينتظر حتى تنام فعلًا، ثم يعدّ المدة التي طلبتها — وبياناتك لا تغادر ساعتك.
 
-[![الإصدار](https://img.shields.io/badge/%D8%A7%D9%84%D8%A5%D8%B5%D8%AF%D8%A7%D8%B1-1.2.0-534AB7)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.2.0-534AB7)](CHANGELOG.md)
 ![Wear OS 3+](https://img.shields.io/badge/Wear%20OS-3%2B-534AB7)
 ![No internet](https://img.shields.io/badge/data-on%20your%20watch-E09A2B)
 [![CI](https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml/badge.svg)](https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml)
