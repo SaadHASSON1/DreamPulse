@@ -103,7 +103,15 @@ class AlarmActivity : ComponentActivity(), SensorEventListener {
         if (showSummary.value) return
         Log.d("AlarmActivity", "dismissAlarm() called")
         stopService(Intent(this, AlarmService::class.java))
-        stopService(Intent(this, SleepMonitorService::class.java))
+        // The stop action (not stopService) also cancels any alarm still pending, so dismissing
+        // can never leave the backup alarm armed. Before the first unlock after a restart the
+        // service cannot run at all: the alarm that opened this screen has already rung then.
+        try {
+            startService(Intent(this, SleepMonitorService::class.java).setAction(SleepMonitorService.ACTION_STOP_MONITORING))
+        } catch (e: Exception) {
+            Log.w("AlarmActivity", "Could not stop the monitor service", e)
+            stopService(Intent(this, SleepMonitorService::class.java))
+        }
         sleepRepository.setTracking(false)
         // AlarmService already ended the session and saved it for the summary; clearing
         // again here is only a safety net in case the alarm service was killed first.

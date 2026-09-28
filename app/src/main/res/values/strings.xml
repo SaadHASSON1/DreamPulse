@@ -35,11 +35,11 @@
     <string name="stop">Stop</string>
     <string name="perm_title">Allow alarm screen</string>
     <string name="perm_body">So the alarm can open on its own when it rings.</string>
-    <string name="perm_open">Open settings</string>
+    <string name="perm_open">Settings</string>
     <string name="perm_skip">Skip</string>
     <string name="perm_denied">Allow sensor access (all the time) to start</string>
     <string name="samsung_title">Keep DreamPulse awake</string>
-    <string name="samsung_body">Add DreamPulse to \"Never sleeping apps\" in battery settings so the alarm always rings.</string>
+    <string name="samsung_body">Add it to \"Never sleeping apps\" so the alarm always rings.</string>
     <string name="notif_monitoring">Waiting for sleep</string>
     <string name="notif_monitoring_text">Rest well. The countdown starts when you fall asleep.</string>
     <string name="notif_alarm_set">Alarm %1$s</string>

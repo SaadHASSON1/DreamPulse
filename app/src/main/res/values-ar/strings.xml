@@ -34,11 +34,11 @@
     <string name="stop">إيقاف</string>
     <string name="perm_title">اسمح بشاشة المنبّه</string>
     <string name="perm_body">ليفتح المنبّه تلقائياً عندما يرنّ.</string>
-    <string name="perm_open">فتح الإعدادات</string>
+    <string name="perm_open">الإعدادات</string>
     <string name="perm_skip">تخطَّ</string>
     <string name="perm_denied">اسمح بالوصول للحساسات (طوال الوقت) للبدء</string>
     <string name="samsung_title">أبقِ DreamPulse يعمل</string>
-    <string name="samsung_body">أضف DreamPulse إلى \"التطبيقات التي لا تنام أبداً\" في إعدادات البطارية ليرنّ المنبّه دائماً.</string>
+    <string name="samsung_body">أضفه إلى «التطبيقات التي لا تنام أبداً» ليرنّ المنبّه دائماً.</string>
     <string name="notif_monitoring">بانتظار النوم</string>
     <string name="notif_monitoring_text">نوماً هنيئاً. يبدأ العدّ عندما تغفو.</string>
     <string name="notif_alarm_set">المنبّه %1$s</string>

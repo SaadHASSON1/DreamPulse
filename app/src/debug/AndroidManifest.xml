@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: lets adb open the alarm and morning screens directly, for screenshots and
+     testing: adb shell am start -n com.x13labs.dreampulse/.ui.AlarmActivity with the string extra
+     action=show_summary (see AlarmActivity).
+     Release builds keep the activity private. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <activity
+            android:name=".ui.AlarmActivity"
+            android:exported="true"
+            tools:replace="android:exported" />
+    </application>
+</manifest>
