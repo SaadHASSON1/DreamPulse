@@ -298,6 +298,7 @@ class SleepMonitorService : Service(), SensorEventListener {
         if (!isSimulation && System.currentTimeMillis() - serviceStartTime < 60000) return
 
         Log.d("SleepMonitor", "Sleep confirmed via: $source (simulation=$isSimulation, duration=${sleepDurationMillis}ms)")
+        NightLog.event(this, serviceStartTime, "sleep-confirmed:${source.replace(',', ' ')}")
         isSleepConfirmed = true
         healthServicesManager.updateSleepState(SleepState.ASLEEP)
         val now = onset.coerceIn(serviceStartTime, System.currentTimeMillis())
@@ -384,7 +385,13 @@ class SleepMonitorService : Service(), SensorEventListener {
                     detector?.onMotion(now)
                     minuteMotion.incrementAndGet()
                     // Two separate movements (a real turn-over), not a single twitch
-                    if (isSleepConfirmed && isSmartWindowActive && smartWakeGate.onMotion(now)) triggerAlarmNow()
+                    if (isSleepConfirmed && isSmartWindowActive) {
+                        NightLog.event(this, serviceStartTime, "smart-motion")
+                        if (smartWakeGate.onMotion(now)) {
+                            NightLog.event(this, serviceStartTime, "smart-wake-fired")
+                            triggerAlarmNow()
+                        }
+                    }
                     motionEvents.clear()
                 }
             }
@@ -482,10 +489,12 @@ class SleepMonitorService : Service(), SensorEventListener {
      * accelerometer, so a light-sleep movement triggers the alarm early.
      */
     private fun openSmartWindow() {
-        if (!isSleepConfirmed || isSmartWindowActive) return
+        if (isSmartWindowActive) return
+        if (!isSleepConfirmed) { NightLog.event(this, serviceStartTime, "smart-window-skipped:not-asleep"); return }
         val remaining = smartWindowTime - System.currentTimeMillis()
-        if (remaining <= 0) return
+        if (remaining <= 0) { NightLog.event(this, serviceStartTime, "smart-window-skipped:too-late"); return }
         Log.d("SleepMonitor", "Smart wake window ACTIVE (${remaining / 60000} min left)")
+        NightLog.event(this, serviceStartTime, "smart-window-open:${remaining / 60000}min")
 
         // Hold the CPU until just after the scheduled alarm; without it the (non-wakeup)
         // accelerometer stops delivering events as soon as the watch dozes.

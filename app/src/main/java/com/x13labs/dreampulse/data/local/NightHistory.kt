@@ -71,8 +71,10 @@ object NightHistory {
  * files folder (other apps cannot read it; adb can, even on a release build), and echoed
  * to logcat under the NightLog tag.
  *
- * Columns: time,motionBursts,heartRate,worn,stillMinutes
+ * Columns: time,motionBursts,heartRate,worn,stillMinutes,event
  *   worn is 1 (on wrist), 0 (off) or empty (unknown); heartRate is empty when not sampled.
+ *   Event lines (sleep confirmed, smart-wake window, movements in it, alarm) leave the signal
+ *   columns empty, so a night can be checked afterwards without logcat.
  */
 object NightLog {
     private const val KEEP_FILES = 7
@@ -84,10 +86,15 @@ object NightLog {
     fun append(context: Context, sessionStart: Long, line: String) {
         val f = File(dir(context), "session-$sessionStart.csv")
         if (!f.exists()) {
-            f.writeText("time,motionBursts,heartRate,worn,stillMinutes\n")
+            f.writeText("time,motionBursts,heartRate,worn,stillMinutes,event\n")
             dir(context).listFiles()?.sortedBy { it.name }?.dropLast(KEEP_FILES)?.forEach { it.delete() }
         }
         f.appendText(line + "\n")
         android.util.Log.d("NightLog", "$sessionStart,$line")
+    }
+
+    /** One event line; never throws (the log must not break the night). */
+    fun event(context: Context, sessionStart: Long, name: String) {
+        runCatching { append(context, sessionStart, "${System.currentTimeMillis()},,,,,$name") }
     }
 }
