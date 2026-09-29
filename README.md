@@ -21,7 +21,7 @@
 [سياسة الخصوصية](https://saadhasson1.github.io/DreamPulse/privacy-policy.html) ·
 [English](#english)
 
-<img src="docs/screenshots/showcase-ar.png" width="100%" alt="دريم بلس على Galaxy Watch7: الإعداد، مدة النوم، انتظار النوم، منبّه الشروق، السجل">
+<img src="docs/screenshots/showcase-ar.png" width="100%" alt="دريم بولس على Galaxy Watch7: الإعداد، مدة النوم، انتظار النوم، منبّه الشروق، السجل">
 
 </div>
 
@@ -31,7 +31,7 @@
 
 أنام بعد صلاة الفجر، ولا أغفو بمجرد أن أضع رأسي على الوسادة: عشر دقائق في ليلة، وأربعون في أخرى. والمنبّه العادي يقتطع تلك الدقائق من نومي.
 
-**دريم بلس يراقب نبض القلب والحركة، ولا يبدأ العدّ إلا حين تنام فعلًا.** طلبت سبع ساعات؟ تنام سبع ساعات حقيقية.
+**دريم بولس يراقب نبض القلب والحركة، ولا يبدأ العدّ إلا حين تنام فعلًا.** طلبت سبع ساعات؟ تنام سبع ساعات حقيقية.
 
 | | |
 |---|---|
@@ -70,7 +70,7 @@
 
 1. انضم إلى مجموعة المجرّبين: [**groups.google.com/g/dreampulse**](https://groups.google.com/g/dreampulse) بحساب Google نفسه الذي على ساعتك.
 2. افتح [**رابط التجربة**](https://play.google.com/apps/testing/com.x13labs.dreampulse) واضغط «أصبح مختبِرًا».
-3. ثبّت دريم بلس من متجر Play على الساعة، وافتحه، واتبع شاشات الترحيب لمنح الأذونات.
+3. ثبّت دريم بولس من متجر Play على الساعة، وافتحه، واتبع شاشات الترحيب لمنح الأذونات.
 
 **المتطلبات:** ساعة Wear OS 3 أو أحدث فيها حسّاس نبض. جُرّب على Galaxy Watch7 (Wear OS 6).
 
@@ -120,4 +120,4 @@ It has **no internet permission**: heart rate, motion and sleep history never le
 
 </div>
 
-<div align="center"><sub>© 2026 دريم بلس — DreamPulse · X13LABS. جميع الحقوق محفوظة.</sub></div>
+<div align="center"><sub>© 2026 دريم بولس — DreamPulse · X13LABS. جميع الحقوق محفوظة.</sub></div>
