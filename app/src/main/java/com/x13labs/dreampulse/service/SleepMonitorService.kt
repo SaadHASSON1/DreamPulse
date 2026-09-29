@@ -557,6 +557,9 @@ class SleepMonitorService : Service(), SensorEventListener {
 
                 if (isSleepConfirmed) {
                     healthServicesManager.stopHeartRateMeasurement()
+                    // The 15-minute hold above is not needed once asleep: the alarms wake the
+                    // CPU themselves. Letting it run out kept the watch awake for nothing.
+                    if (wakeLock?.isHeld == true) wakeLock?.release()
                     break // Stop measure client entirely once sleep is confirmed
                 } else {
                     healthServicesManager.startHeartRateMeasurement(forceRestart = false)
