@@ -16,9 +16,9 @@
 [![CI](https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml/badge.svg)](https://github.com/SaadHASSON1/DreamPulse/actions/workflows/ci.yml)
 
 [**⌚ انضم إلى التجربة**](#التثبيت) ·
-[الموقع](https://saadhasson1.github.io/DreamPulse/) ·
+[الموقع](https://dreampulse.x13labs.com/) ·
 [سجل الإصدارات](CHANGELOG.md) ·
-[سياسة الخصوصية](https://saadhasson1.github.io/DreamPulse/privacy-policy.html) ·
+[سياسة الخصوصية](https://dreampulse.x13labs.com/privacy-policy.html) ·
 [English](#english)
 
 <img src="docs/screenshots/showcase-ar.png" width="100%" alt="دريم بولس على Galaxy Watch7: الإعداد، مدة النوم، انتظار النوم، منبّه الشروق، السجل">
@@ -49,7 +49,7 @@
 - نبض القلب والحركة وسجل النوم **تبقى على ساعتك فقط**.
 - **لا حساب ولا تسجيل ولا إعلانات.**
 
-التفاصيل الكاملة: [سياسة الخصوصية](https://saadhasson1.github.io/DreamPulse/privacy-policy.html).
+التفاصيل الكاملة: [سياسة الخصوصية](https://dreampulse.x13labs.com/privacy-policy.html).
 
 ## كيف يُكتشف النوم؟
 
@@ -114,7 +114,7 @@ It has **no internet permission**: heart rate, motion and sleep history never le
 
 **Join the closed test:** join [the testers group](https://groups.google.com/g/dreampulse), then open [the testing link](https://play.google.com/apps/testing/com.x13labs.dreampulse) and install from Google Play on your watch.
 
-[Website](https://saadhasson1.github.io/DreamPulse/) · [Privacy Policy](https://saadhasson1.github.io/DreamPulse/privacy-policy.html) · [Changelog](CHANGELOG.md) · Contact: contact@x13labs.com
+[Website](https://dreampulse.x13labs.com/) · [Privacy Policy](https://dreampulse.x13labs.com/privacy-policy.html) · [Changelog](CHANGELOG.md) · Contact: contact@x13labs.com
 
 <img src="docs/screenshots/showcase-en.png" width="100%" alt="DreamPulse on a Galaxy Watch7: setup, duration wheels, waiting for sleep, sunrise alarm, history">
 
